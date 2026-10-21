@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/client";
 import AdminNav from "@/components/AdminNav";
+import { TicketImage } from "@/components/ImageUpload";
 
 interface TicketRow {
   id: string;
@@ -16,6 +17,8 @@ interface TicketRow {
   status: string;
   assignedTo?: string;
   imageName?: string;
+  imageDataUrl?: string;
+  imageFile?: string;
   createdAt: string;
   responses: { by: string; text: string; at: string }[];
 }
@@ -56,7 +59,8 @@ export default function AdminTicketsPage() {
               {tk.symptoms ? <><br />Symptoms: {tk.symptoms}</> : null}
             </p>
             <p className="mt-1">{tk.description}</p>
-            {tk.imageName && <p className="text-sm text-neutral-600">Attached image: {tk.imageName}</p>}
+            <TicketImage imageFile={tk.imageFile} imageDataUrl={tk.imageDataUrl} imageName={tk.imageName} />
+            {tk.imageName && !tk.imageFile && !tk.imageDataUrl && <p className="text-sm text-neutral-600">Attached image: {tk.imageName}</p>}
             {tk.responses.map((r, i) => (
               <p key={i} className="mt-1 rounded bg-cream p-2 text-sm"><strong>{r.by}:</strong> {r.text}</p>
             ))}

@@ -1,5 +1,6 @@
 import { loadStore, saveStore, nextSeq, audit } from "@/lib/db";
 import { currentUser, fail, json } from "@/lib/api-helpers";
+import { UPLOAD_NAME_PATTERN } from "@/lib/uploads";
 import { uid } from "@/lib/password";
 import type { Ticket } from "@/lib/types";
 
@@ -17,6 +18,12 @@ export async function POST(req: Request) {
   if (imageDataUrl && imageDataUrl.length > 700_000) {
     return fail("Image is too large. Please attach an image under 500 KB.", 422);
   }
+  // New uploads are files: accept only names previously issued by
+  // /api/uploads (generated pattern), never arbitrary paths.
+  const imageFile =
+    typeof body?.imageFile === "string" && UPLOAD_NAME_PATTERN.test(body.imageFile)
+      ? body.imageFile
+      : undefined;
   const user = await currentUser();
   const store = loadStore();
   const seq = nextSeq(store, "ticket", 100);
@@ -32,7 +39,8 @@ export async function POST(req: Request) {
     symptoms: String(body?.symptoms ?? "").trim() || undefined,
     description,
     imageName: String(body?.imageName ?? "").trim() || undefined,
-    imageDataUrl,
+    imageDataUrl: imageFile ? undefined : imageDataUrl,
+    imageFile,
     status: "Open",
     responses: [],
     createdAt: new Date().toISOString(),

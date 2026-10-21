@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api, fetchMe } from "@/lib/client";
 import { useLang } from "@/components/LanguageProvider";
 import { VILLAGES } from "@/lib/villages";
+import ImageUpload, { TicketImage } from "@/components/ImageUpload";
 
 interface TicketRow {
   id: string;
@@ -12,6 +13,9 @@ interface TicketRow {
   description: string;
   status: string;
   createdAt: string;
+  imageName?: string;
+  imageDataUrl?: string;
+  imageFile?: string;
   responses: { by: string; text: string; at: string }[];
 }
 
@@ -29,7 +33,7 @@ export default function FarmerSupportPage() {
     symptoms: "",
     description: "",
     imageName: "",
-    imageDataUrl: "",
+    imageFile: "",
   });
 
   const load = () =>
@@ -42,18 +46,6 @@ export default function FarmerSupportPage() {
     load();
   }, []);
 
-  const onImage = (file: File | null) => {
-    if (!file) return;
-    if (file.size > 500 * 1024) {
-      setError("Image is too large. Please choose an image under 500 KB.");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () =>
-      setForm((f) => ({ ...f, imageName: file.name, imageDataUrl: String(reader.result ?? "") }));
-    reader.readAsDataURL(file);
-  };
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -64,7 +56,7 @@ export default function FarmerSupportPage() {
         body: JSON.stringify({ ...form, type: "crop" }),
       });
       setMsg(`Request submitted. Ticket number ${r.ticketNo}.`);
-      setForm((f) => ({ ...f, crop: "", stage: "", symptoms: "", description: "", imageName: "", imageDataUrl: "" }));
+      setForm((f) => ({ ...f, crop: "", stage: "", symptoms: "", description: "", imageName: "", imageFile: "" }));
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not submit");
@@ -104,11 +96,11 @@ export default function FarmerSupportPage() {
             <label className="label" htmlFor="sp-desc">{t("description")}</label>
             <textarea id="sp-desc" required className="input" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </div>
-          <div>
-            <label className="label" htmlFor="sp-img">Photo of affected plant (optional, max 500 KB)</label>
-            <input id="sp-img" type="file" accept="image/*" className="input" onChange={(e) => onImage(e.target.files?.[0] ?? null)} />
-            {form.imageName && <p className="text-sm text-leaf-700">Attached: {form.imageName}</p>}
-          </div>
+          <ImageUpload
+            label={`${t("attachPhoto")} — Photo of affected plant (optional, max 2 MB)`}
+            onUploaded={(name, originalName) => setForm((f) => ({ ...f, imageFile: name, imageName: originalName }))}
+          />
+          {form.imageName && <p className="text-sm text-leaf-700">Attached: {form.imageName}</p>}
           {error && <p className="rounded-lg bg-red-50 p-3 text-red-800" role="alert">{error}</p>}
           {msg && <p className="rounded-lg bg-leaf-50 p-3 text-leaf-800" role="status">{msg}</p>}
           <button className="btn-primary" type="submit">{t("submit")}</button>
@@ -126,6 +118,7 @@ export default function FarmerSupportPage() {
                 <span className="text-xs text-neutral-500">{new Date(tk.createdAt).toLocaleString("en-IN")}</span>
               </p>
               <p className="mt-1 text-sm">{tk.description}</p>
+              <TicketImage imageFile={tk.imageFile} imageDataUrl={tk.imageDataUrl} imageName={tk.imageName} />
               {tk.responses.map((r, i) => (
                 <p key={i} className="mt-1 rounded bg-cream p-2 text-sm">
                   <strong>{r.by}:</strong> {r.text}
