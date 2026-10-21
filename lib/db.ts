@@ -1,4 +1,5 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
 import type { Store } from "./types";
 import { buildSeed } from "./seed";
@@ -6,8 +7,27 @@ import { buildSeed } from "./seed";
 // Development data store. The production schema lives in db/schema.sql
 // (PostgreSQL). This JSON store mirrors the same collections so the Phase 1
 // application runs locally with no external services or credentials.
-const DATA_DIR = path.join(process.cwd(), "data");
-const STORE_FILE = path.join(DATA_DIR, "store.json");
+//
+// Serverless note (verified 2026-10-21 against Vercel's runtime docs):
+// Vercel Functions have a READ-ONLY filesystem with only /tmp writable
+// (500 MB scratch). Writing to <cwd>/data therefore throws EROFS there and
+// would 500 every request, so persistence is best-effort with fallbacks:
+//   1. <cwd>/data/store.json   (local dev — unchanged behaviour)
+//   2. /tmp/kisankendra-data/store.json (serverless scratch)
+//   3. In-memory only (the global store below stays authoritative for the
+//      lifetime of a warm instance; persist() never throws)
+// On serverless, data resets to the seed on a cold start. That is a demo
+// limitation, not silent data loss: a durable store needs the production
+// PostgreSQL/Supabase path in db/ (free tier), which is a Phase 2 switch.
+const PRIMARY_DIR = path.join(process.cwd(), "data");
+const FALLBACK_DIR = path.join(os.tmpdir(), "kisankendra-data");
+const CANDIDATE_DIRS = [PRIMARY_DIR, FALLBACK_DIR];
+
+let activeDir: string | null = null;
+
+function storeFileIn(dir: string): string {
+  return path.join(dir, "store.json");
+}
 
 declare global {
   // eslint-disable-next-line no-var
@@ -16,10 +36,20 @@ declare global {
 
 export function loadStore(): Store {
   if (globalThis.__kkStore) return globalThis.__kkStore;
-  let store: Store;
-  if (fs.existsSync(STORE_FILE)) {
-    store = JSON.parse(fs.readFileSync(STORE_FILE, "utf-8")) as Store;
-  } else {
+  let store: Store | undefined;
+  for (const dir of CANDIDATE_DIRS) {
+    const file = storeFileIn(dir);
+    try {
+      if (fs.existsSync(file)) {
+        store = JSON.parse(fs.readFileSync(file, "utf-8")) as Store;
+        activeDir = dir;
+        break;
+      }
+    } catch {
+      // Unreadable candidate — try the next one, then seed.
+    }
+  }
+  if (!store) {
     store = buildSeed();
     persist(store);
   }
@@ -28,10 +58,22 @@ export function loadStore(): Store {
 }
 
 export function persist(store: Store): void {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  const tmp = STORE_FILE + ".tmp";
-  fs.writeFileSync(tmp, JSON.stringify(store, null, 2));
-  fs.renameSync(tmp, STORE_FILE);
+  const dirs = activeDir ? [activeDir, ...CANDIDATE_DIRS.filter((d) => d !== activeDir)] : CANDIDATE_DIRS;
+  const payload = JSON.stringify(store, null, 2);
+  for (const dir of dirs) {
+    try {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      const file = storeFileIn(dir);
+      const tmp = file + ".tmp";
+      fs.writeFileSync(tmp, payload);
+      fs.renameSync(tmp, file);
+      activeDir = dir;
+      return;
+    } catch {
+      // Read-only or ephemeral filesystem (e.g. Vercel) — try the next
+      // candidate. If none work, the in-memory store still serves requests.
+    }
+  }
 }
 
 export function saveStore(): void {

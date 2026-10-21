@@ -160,6 +160,27 @@ The repo is push-ready: `.gitignore` excludes `node_modules/`, `.next/`,
 committed; `.env.example` lists names only. The user provides their GitHub
 remote at delivery time — no push is attempted by the build.
 
+## Deploying to Vercel (free tier)
+
+Import the GitHub repo in Vercel (framework preset: Next.js, no build
+settings to change, no env vars needed for the Phase 1 demo) and deploy —
+that produces the public URL.
+
+**Verified serverless fix (2026-10-21):** Vercel Functions have a read-only
+filesystem with only `/tmp` writable. `lib/db.ts` therefore persists
+best-effort: local `data/store.json` first, then `/tmp/kisankendra-data/`
+on serverless, then in-memory only — a failed write can never crash a
+request. Verified by build + the full 41-test API suite locally, plus a
+sabotaged-primary-path run (products/login/home all 200, store written to
+`/tmp`).
+
+**Honest limitation:** on Vercel the demo data is ephemeral — it resets to
+the seed data (demo logins in the guides) whenever the function cold-starts.
+That is fine for trying the full flow, but it is not durable storage. For a
+real pilot, switch to the production PostgreSQL schema in `db/` on the
+Supabase free tier (₹0) — that is the Phase 2 step, and it needs the
+project owner's Supabase account credentials.
+
 ## Roadmap
 
 - **Phase 1 (this build):** public site, auth, farmer marketplace + tracking,
