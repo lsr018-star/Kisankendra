@@ -2,7 +2,8 @@ import { loadStore, saveStore, nextSeq, audit } from "@/lib/db";
 import { fail, isResponse, json, requireShopUser } from "@/lib/api-helpers";
 import { hasPermission } from "@/lib/auth";
 import { pctOf } from "@/lib/money";
-import { findInventory, recordHistory } from "@/lib/assignment";
+import { availableAcross, findBatches, findInventory, recordHistory } from "@/lib/assignment";
+import { recordOrderPayment } from "@/lib/payments/service";
 import { serializeOrder } from "@/lib/orders";
 import { uid } from "@/lib/password";
 import type { Order, OrderItem } from "@/lib/types";
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
     const inv = findInventory(store, user.shopId!, raw.productId, raw.packSize);
     if (!inv) return fail("One item is not in your inventory", 422);
     const qty = Math.max(1, Number(raw.qty) || 1);
-    if (inv.stock - inv.reserved < qty) return fail("Not enough stock for one item", 422);
+    if (availableAcross(store, user.shopId!, raw.productId, raw.packSize) < qty) return fail("Not enough stock for one item", 422);
     const product = store.products.find((p) => p.id === raw.productId);
     const lineTotal = inv.pricePaise * qty;
     items.push({
@@ -73,26 +74,38 @@ export async function POST(req: Request) {
     updatedAt: new Date().toISOString(),
   };
   // Walk-in stock leaves the shelf immediately when recorded as delivered,
-  // otherwise it is reserved until fulfilment.
+  // otherwise it is reserved until fulfilment. Both consume batches FEFO.
   for (const item of items) {
-    const inv = findInventory(store, user.shopId!, item.productId, item.packSize)!;
-    if (markDelivered) {
-      inv.stock -= item.qty;
-      store.stockMovements.unshift({
-        id: uid("mov_"),
-        shopId: user.shopId!,
-        inventoryId: inv.id,
-        productId: item.productId,
-        delta: -item.qty,
-        reason: `Walk-in sale ${order.orderNo}`,
-        actorId: user.id,
-        at: new Date().toISOString(),
-      });
-    } else {
-      inv.reserved += item.qty;
+    let remaining = item.qty;
+    for (const inv of findBatches(store, user.shopId!, item.productId, item.packSize)) {
+      if (remaining <= 0) break;
+      if (markDelivered) {
+        const take = Math.min(remaining, inv.stock - inv.reserved);
+        if (take <= 0) continue;
+        inv.stock -= take;
+        remaining -= take;
+        store.stockMovements.unshift({
+          id: uid("mov_"),
+          shopId: user.shopId!,
+          inventoryId: inv.id,
+          productId: item.productId,
+          delta: -take,
+          reason: `Walk-in sale ${order.orderNo}`,
+          actorId: user.id,
+          at: new Date().toISOString(),
+        });
+      } else {
+        const take = Math.min(remaining, inv.stock - inv.reserved);
+        if (take <= 0) continue;
+        inv.reserved += take;
+        remaining -= take;
+      }
     }
   }
   store.orders.push(order);
+  if (markDelivered) {
+    recordOrderPayment(store, order, "manual", "Paid at shop counter", user.id);
+  }
   recordHistory(store, order, order.status, user.id, user.role, "Walk-in order recorded by shop");
   audit(store, user.id, user.role, "order.manual", "order", order.id, order.orderNo);
   saveStore();

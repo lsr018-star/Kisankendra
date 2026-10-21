@@ -9,6 +9,7 @@ import {
   releaseReservation,
 } from "@/lib/assignment";
 import { canViewOrder, serializeOrder } from "@/lib/orders";
+import { recordOrderPayment } from "@/lib/payments/service";
 import type { Order } from "@/lib/types";
 
 const FLOW: Record<string, string[]> = {
@@ -141,7 +142,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
     if (nextStatus === "Delivered") {
       applyDelivery(store, order);
-      if (order.paymentStatus === "Pending") order.paymentStatus = "Paid";
+      if (order.paymentStatus === "Pending") {
+        order.paymentStatus = "Paid";
+        // COD/manual money changes hands at delivery — write the ledger
+        // record through the payments layer (idempotent per order).
+        recordOrderPayment(
+          store,
+          order,
+          order.paymentMethod === "COD" ? "cod" : "manual",
+          order.paymentMethod === "COD" ? "Cash collected on delivery" : "Payment confirmed on delivery",
+          user.id
+        );
+      }
     }
     if (nextStatus === "Cancelled") releaseReservation(store, order);
     if (nextStatus === "Returned") {
