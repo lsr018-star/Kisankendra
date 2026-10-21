@@ -43,3 +43,15 @@
 
 Use the **English / हिन्दी** selector at the top at any time. Your choice is
 remembered on your device and saved to your profile.
+
+## Your home screen — three big buttons
+
+After login, your dashboard starts with three large buttons:
+
+- **Order Again (फिर से ऑर्डर करें)** — your orders, with one-tap reorder.
+- **Track Order (ऑर्डर देखें)** — goes straight to your current order's
+  tracking page.
+- **Help for Crop (फसल में मदद)** — ask for crop help. You can attach a
+  photo of the affected plant (choose the photo, check the preview, then
+  submit); the photo is saved with your request and shown to the expert
+  who replies.

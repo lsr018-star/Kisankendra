@@ -1,11 +1,46 @@
 # Kisankendra — Test Checklist & Known Limitations
 
-## Automated verification (run 2026-10-21, all green)
+## Automated verification (Phase 1 run 2026-10-21; Phase 2/3 re-run 2026-10-21, all green)
 
 Command: `npm run build` (passes), production server on port 3200, then
-`BASE_URL=http://localhost:3200 node scripts/test-api.mjs`.
+`KK_BASE=http://localhost:3200 node scripts/test-api.mjs` followed by
+`KK_BASE=http://localhost:3200 node scripts/test-phase2.mjs` on the same
+freshly-seeded server.
 
-**Result: 41 passed, 0 failed.** Coverage:
+**Result (JSON backend): Phase 1 — 41 passed, 0 failed. Phase 2/3 — 57
+passed, 0 failed.** The identical runs against the **PostgreSQL backend**
+(`DATABASE_URL` set, real PostgreSQL 18.4): **41/41 and 57/57**, plus
+`scripts/rls-check.mjs` PASS and state identical across an app restart.
+
+Phase 2/3 suite coverage (57 checks):
+
+- [x] Batch rows per product/pack; expired batch flagged and unsellable
+      (available 0); near-expiry flag at ≤45 days; dashboard alert counts
+- [x] Owner creates/edits/adjusts batches; duplicate batch → 409; staff
+      without the inventory permission → 403; cross-shop edit → 404
+- [x] Staff inventory view redacts cost prices
+- [x] **FEFO:** delivery consumes the earliest-expiring valid batch first;
+      the expired batch is never touched
+- [x] **Onboarding:** admin approves Shop C + verifies licence → Shop C
+      stocks a catalogue product → a Babai order is assigned to Shop C
+- [x] Reports: sales gross equals the delivered-orders sum; margin rows sum
+      to the summary; reconciliation returns expected/collected/outstanding;
+      CSV export (header + rows, text/csv); staff without the finance
+      permission → 403 on margin + reconciliation; farmer → 403
+- [x] Subscriptions: seeded Growth/Active state; staff subscribe → 403;
+      admin creates a plan; shop subscribes → billing Pending
+- [x] Payments: manual provider creates a payment intent; webhook with a
+      bad HMAC signature → 400; valid signature → payment Paid + billing
+      Paid; replay is idempotent; refund initiated with a provider refund
+      id; duplicate refund → 409; farmer refund → 403
+- [x] Settlements: generated from real delivered orders (gross, commission,
+      supply due), marked Settled, visible only to the owning shop
+- [x] Uploads: PNG accepted and served back as image/png; non-image → 422;
+      arbitrary file names → 404; ticket stores the uploaded file reference
+- [x] Analytics: 30-day revenue trend; totals shop-scoped (Shop B < all
+      shops); repeat-customer rate within 0–100; farmer → 403
+
+Phase 1 coverage (41 checks):
 
 - [x] Farmer login by mobile; wrong password → 401; anonymous API → 401
 - [x] Catalogue lists 14 products; availability aggregates approved shops only
@@ -45,25 +80,33 @@ attributes is ordinary form UX, not stub content.
 - [ ] Cart persists across reload; quantities and totals update
 - [ ] Checkout with a saved address; field-delivery instructions saved
 - [ ] Shop owner walks an order to Delivered; farmer tracking updates
-- [ ] Admin marks Shop C's licences verified and approves it; Shop C's status
-      badge updates (it still needs stocked inventory before it can win
-      assignments — new-stock onboarding is a Phase 2 workflow)
+- [ ] Admin approves Shop C + verifies licences; Shop C stocks products from
+      the onboarding checklist; a Babai order is then assigned to Shop C
+- [ ] Farmer home: the three big buttons (Order Again / Track Order /
+      Help for Crop) are easy to tap; crop help photo uploads and previews
+- [ ] Shop: expiry alerts visible on the dashboard; reports download as CSV;
+      subscription page shows plan + billing history
 - [ ] Keyboard navigation: all actions reachable, visible focus outline
 - [ ] 200% text zoom: no clipped buttons or overlapping text
 
 ## Known limitations (honest list)
 
-1. **Dev data store:** `data/store.json` is single-process JSON. Correct for
-   local demo and pilot testing; production must use `db/schema.sql` on
-   PostgreSQL/Supabase per the README mapping.
-2. **Payments:** Cash on Delivery / manual confirmation only. No gateway is
-   integrated; subscription billing UI is a labelled Phase 3 note. No card
-   data is collected or stored.
-3. **Images:** product tiles are generated CSS/SVG graphics, not photos
-   (₹0 asset budget). Ticket image attachments are stored as data URLs in
-   the dev store (500 KB cap) — production should use object storage.
-4. **Sessions** are server-side records in the dev store; production should
-   use the `sessions` table or Supabase Auth with the same role model.
+1. **Data stores:** the JSON dev store is single-process. The PostgreSQL
+   backend (`DATABASE_URL`) is implemented and verified, but stores each
+   record as JSONB in per-collection tables — durable and RLS-protected,
+   with the normalised `db/schema.sql` as the scale target (migration path
+   in `docs/CHANGE-GUIDE.md`).
+2. **Payments:** COD / manual confirmation is fully live. The Razorpay
+   adapter path is code-complete (orders, checkout handoff, signed webhooks,
+   refunds) but **not live**: it needs the owner's gateway account, KYC and
+   seller-of-record decision (README → "Payments"). No card data is
+   collected or stored by the app.
+3. **Images:** product artwork is generated SVG packshots, not photos
+   (₹0 asset budget). Ticket images are files under `data/uploads` — on
+   serverless hosts without durable disk they are ephemeral; production
+   should use object storage.
+4. **Sessions** are server-side records in the store; at scale move them to
+   the `sessions` table with TTL or Redis.
 5. **Notifications** are stored records surfaced on the shop dashboard; no
    SMS/WhatsApp sending is integrated (would need a provider and consent
    workflows).
@@ -73,6 +116,6 @@ attributes is ordinary form UX, not stub content.
 7. **Licence verification** is an admin decision flag by design — it is not
    an automated government-database check.
 8. No rate limiting or CAPTCHA in the dev build; add before public exposure.
-9. Disease Finder content is curated general reference information in
-   original wording — not a diagnostic tool and not a substitute for label
-   directions or agriculture-department advice.
+9. Disease Finder content (17 entries) is curated general reference
+   information in original wording — not a diagnostic tool and not a
+   substitute for label directions or agriculture-department advice.

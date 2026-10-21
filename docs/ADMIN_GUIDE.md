@@ -38,6 +38,26 @@ Login: `admin@kisankendra.in` (demo). The admin console is at `/admin`.
 
 ## Going to production
 
-Follow README → "Data layer": run `db/schema.sql` + `db/rls_policies.sql` on
-PostgreSQL/Supabase (free tier is enough for a pilot), set the env vars from
-`.env.example`, and replace the demo admin password immediately.
+Follow README → "Data layer": the PostgreSQL backend is implemented —
+create any PostgreSQL database (a Supabase free-tier project is enough for
+a pilot), set `DATABASE_URL` from `.env.example`, optionally apply
+`db/schema.sql` + `db/rls_policies.sql` with `scripts/apply-schema.mjs`,
+and replace the demo admin password immediately.
+
+## Plans, settlements & analytics (Phase 2/3)
+
+- **Subscription Plans** — create/edit plans (name in EN + HI, price,
+  period, features), assign a plan to a shop, confirm or cancel billing
+  records, and cancel subscriptions. A shop's status (Active/Grace/
+  Expired) is derived from its period end and the configured grace days.
+- **Reports** — the shop reports pack across all shops or one shop, with a
+  per-shop breakdown and CSV export.
+- **Settlements** — generate a period settlement for a shop from its
+  delivered orders (gross, commission, supply due) and mark it Settled when
+  paid out. Refunds are initiated from **Payments** on an order (Admin →
+  Settlements lists recent payment records).
+- **Analytics** — platform-wide or per-shop revenue trend (30 days), top
+  products, top villages, repeat-customer rate and the order funnel.
+- **Payments go-live** is an owner task (gateway account + KYC +
+  seller-of-record decision) — README → "Payments" lists the exact steps.
+  Until then everything runs on COD/manual confirmation.

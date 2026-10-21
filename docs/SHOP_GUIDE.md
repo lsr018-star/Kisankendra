@@ -55,3 +55,38 @@ also be created from the customer profile.
 Staff log in with their own accounts and see only the permissions you are
 granted by the platform setup (demo staff: orders + customers, no cost
 prices, no stock adjustment).
+
+## Inventory batches & expiry (Phase 2)
+
+Every stock line is one **batch** (batch number + expiry date). The same
+product/pack can be held as several batches. Use **Inventory → Add batch**
+for new stock (this is also how a newly approved shop starts), edit a
+batch's expiry/prices from the same screen, and use stock adjustments for
+corrections (a reason is recorded). The dashboard shows **expiry alerts**:
+batches expiring within 45 days are flagged amber; expired batches are
+flagged red and can never be sold — orders always consume the
+earliest-expiring valid batch first (FEFO).
+
+## Reports (Phase 2)
+
+**Reports** gives three views over any date range, with **CSV download**:
+
+- **Sales** — orders and gross sales, plus per-product quantities.
+- **Margin** — per-order supply cost, commission and margin (owner, or
+  staff with the finance permission).
+- **Reconciliation** — what was expected vs collected vs outstanding,
+  order by order.
+
+## Subscription (Phase 2)
+
+**Subscription** shows your current plan, its status (Active / Grace /
+Expired), and billing history. To change plan, pick one and either record a
+payment claim (UPI reference or COD note — an admin confirms it) or pay via
+the payment gateway once the platform enables it.
+
+## Analytics & settlements (Phase 3)
+
+**Analytics** shows your last-30-days revenue trend, top products, top
+villages, repeat-customer rate and the order funnel. **Settlements** lists
+the platform's period settlements for your shop (gross, commission, supply
+amount due) once the admin generates them.
