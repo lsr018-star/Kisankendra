@@ -1,5 +1,6 @@
 import { pctOf } from "./money";
 import { nextSeq, audit } from "./db";
+import { isExpired } from "./products";
 import { uid } from "./password";
 import type { Inventory, Order, Shop, Store } from "./types";
 
@@ -15,9 +16,32 @@ export function findInventory(
   productId: string,
   packSize: string
 ): Inventory | undefined {
-  return store.inventory.find(
-    (i) => i.shopId === shopId && i.productId === productId && i.packSize === packSize
-  );
+  return findBatches(store, shopId, productId, packSize)[0];
+}
+
+// All batch rows for one product/pack at a shop, earliest expiry first
+// (FEFO). Expired batches are excluded — they are not saleable.
+export function findBatches(
+  store: Store,
+  shopId: string,
+  productId: string,
+  packSize: string
+): Inventory[] {
+  return store.inventory
+    .filter(
+      (i) =>
+        i.shopId === shopId && i.productId === productId && i.packSize === packSize && !isExpired(i)
+    )
+    .sort((a, b) => a.expiry.localeCompare(b.expiry));
+}
+
+export function availableAcross(
+  store: Store,
+  shopId: string,
+  productId: string,
+  packSize: string
+): number {
+  return findBatches(store, shopId, productId, packSize).reduce((s, i) => s + available(i), 0);
 }
 
 interface Scored {
@@ -37,8 +61,7 @@ export function eligibleShops(store: Store, order: Order, exclude: string[] = []
     const villageIndex = shop.villages.indexOf(order.village);
     if (villageIndex === -1) continue;
     const hasAll = order.items.every((item) => {
-      const inv = findInventory(store, shop.id, item.productId, item.packSize);
-      return inv && available(inv) >= item.qty;
+      return availableAcross(store, shop.id, item.productId, item.packSize) >= item.qty;
     });
     if (!hasAll) continue;
     const openOrders = store.orders.filter(
@@ -106,13 +129,22 @@ export function assignOrder(
   order.status = "Pending";
   order.unassignedReason = undefined;
 
-  // Reserve stock and price the supply side from this shop's cost fields.
+  // Reserve stock FEFO across batch rows and price the supply side from the
+  // consumed batches' cost fields (weighted average when batches differ).
   let supply = 0;
   for (const item of order.items) {
-    const inv = findInventory(store, shop.id, item.productId, item.packSize)!;
-    inv.reserved += item.qty;
-    item.costPaise = inv.costPaise;
-    supply += inv.costPaise * item.qty;
+    let remaining = item.qty;
+    let costSum = 0;
+    for (const batch of findBatches(store, shop.id, item.productId, item.packSize)) {
+      if (remaining <= 0) break;
+      const take = Math.min(remaining, available(batch));
+      if (take <= 0) continue;
+      batch.reserved += take;
+      costSum += batch.costPaise * take;
+      remaining -= take;
+    }
+    item.costPaise = item.qty > 0 ? Math.round(costSum / item.qty) : 0;
+    supply += costSum;
   }
   order.supplyTotalPaise = supply;
   order.commissionPaise = pctOf(order.itemsTotalPaise, store.config.commissionPct);
@@ -142,25 +174,42 @@ export function assignOrder(
 export function releaseReservation(store: Store, order: Order): void {
   if (!order.shopId) return;
   for (const item of order.items) {
-    const inv = findInventory(store, order.shopId, item.productId, item.packSize);
-    if (inv) inv.reserved = Math.max(0, inv.reserved - item.qty);
+    let remaining = item.qty;
+    // Reservations were placed FEFO, so release them FEFO across batches
+    // (including any batch that has since expired).
+    const rows = store.inventory
+      .filter((i) => i.shopId === order.shopId && i.productId === item.productId && i.packSize === item.packSize)
+      .sort((a, b) => a.expiry.localeCompare(b.expiry));
+    for (const inv of rows) {
+      if (remaining <= 0) break;
+      const take = Math.min(remaining, inv.reserved);
+      inv.reserved -= take;
+      remaining -= take;
+    }
   }
 }
 
-// On delivery the reserved units leave the shelf.
+// On delivery the reserved units leave the shelf (FEFO across batches).
 export function applyDelivery(store: Store, order: Order): void {
   if (!order.shopId) return;
   for (const item of order.items) {
-    const inv = findInventory(store, order.shopId, item.productId, item.packSize);
-    if (inv) {
-      inv.stock = Math.max(0, inv.stock - item.qty);
-      inv.reserved = Math.max(0, inv.reserved - item.qty);
+    let remaining = item.qty;
+    const rows = store.inventory
+      .filter((i) => i.shopId === order.shopId && i.productId === item.productId && i.packSize === item.packSize)
+      .sort((a, b) => a.expiry.localeCompare(b.expiry));
+    for (const inv of rows) {
+      if (remaining <= 0) break;
+      const take = Math.min(remaining, inv.reserved);
+      if (take <= 0) continue;
+      inv.stock = Math.max(0, inv.stock - take);
+      inv.reserved = Math.max(0, inv.reserved - take);
+      remaining -= take;
       store.stockMovements.unshift({
         id: uid("mov_"),
         shopId: order.shopId,
         inventoryId: inv.id,
         productId: item.productId,
-        delta: -item.qty,
+        delta: -take,
         reason: `Delivered order ${order.orderNo}`,
         actorId: "system",
         at: new Date().toISOString(),

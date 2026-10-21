@@ -194,6 +194,11 @@ export interface PlatformConfig {
   taxPct: number;
   refundNote: string;
   lowStockThreshold: number;
+  // Phase 2/3 settings (defaults seeded in lib/seed.ts).
+  nearExpiryDays: number; // inventory batches expiring within this window are flagged
+  subscriptionGraceDays: number; // days after plan expiry before a subscription is Expired
+  paymentProvider: "manual" | "razorpay"; // live gateway switches on via env keys, see lib/payments
+  upiId: string; // platform UPI id shown for the manual/UPI provider (demo value)
 }
 
 export interface TicketResponse {
@@ -215,7 +220,8 @@ export interface Ticket {
   symptoms?: string;
   description: string;
   imageName?: string;
-  imageDataUrl?: string;
+  imageDataUrl?: string; // legacy Phase 1 storage; new uploads use imageFile
+  imageFile?: string; // filename under the uploads dir, served by /api/uploads/[name]
   status: "Open" | "In Progress" | "Closed";
   assignedTo?: string;
   responses: TicketResponse[];
@@ -270,6 +276,103 @@ export interface Session {
   expiresAt: string;
 }
 
+// ---------- Phase 2: subscription plans & billing ----------
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  nameHi: string;
+  pricePaise: number;
+  periodDays: number;
+  features: string[];
+  featuresHi: string[];
+  active: boolean;
+  createdAt: string;
+}
+
+export type SubscriptionStatus = "Active" | "Grace" | "Expired" | "Cancelled";
+
+export interface ShopSubscription {
+  id: string;
+  shopId: string;
+  planId: string;
+  status: SubscriptionStatus;
+  startsAt: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface BillingRecord {
+  id: string;
+  shopId: string;
+  subscriptionId?: string;
+  planId?: string;
+  description: string;
+  amountPaise: number;
+  method: "COD" | "Manual" | "UPI" | "Gateway";
+  status: "Pending" | "Confirmed" | "Paid" | "Refunded" | "Failed";
+  reference?: string;
+  paymentId?: string;
+  createdAt: string;
+  confirmedAt?: string;
+  confirmedBy?: string;
+}
+
+// ---------- Phase 3: payments (provider adapter layer, lib/payments) ----------
+
+export type PaymentProviderId = "manual" | "razorpay";
+
+export type PaymentStatus =
+  | "Created"
+  | "Authorized"
+  | "Captured"
+  | "Paid"
+  | "Failed"
+  | "Refunded"
+  | "PartiallyRefunded";
+
+export interface PaymentRecord {
+  id: string;
+  orderId?: string;
+  billingId?: string;
+  shopId?: string;
+  provider: PaymentProviderId;
+  providerOrderId?: string;
+  providerPaymentId?: string;
+  amountPaise: number;
+  currency: "INR";
+  status: PaymentStatus;
+  method?: string; // cod | upi | card | netbanking | manual
+  reference?: string; // UPI reference / manual receipt note
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RefundRecord {
+  id: string;
+  paymentId: string;
+  orderId?: string;
+  provider: PaymentProviderId;
+  providerRefundId?: string;
+  amountPaise: number;
+  status: "Initiated" | "Processed" | "Failed";
+  reason: string;
+  createdAt: string;
+}
+
+export interface SettlementRecord {
+  id: string;
+  shopId: string;
+  periodStart: string;
+  periodEnd: string;
+  grossPaise: number; // delivered order totals in the period
+  commissionPaise: number; // platform commission for the period
+  supplyPaise: number; // amount due to the shop for the period
+  status: "Open" | "Settled";
+  createdAt: string;
+  settledAt?: string;
+}
+
 export interface Store {
   users: User[];
   shops: Shop[];
@@ -288,4 +391,11 @@ export interface Store {
   sessions: Session[];
   config: PlatformConfig;
   counters: Record<string, number>;
+  // Phase 2/3 collections
+  plans: SubscriptionPlan[];
+  subscriptions: ShopSubscription[];
+  billingRecords: BillingRecord[];
+  payments: PaymentRecord[];
+  refunds: RefundRecord[];
+  settlements: SettlementRecord[];
 }

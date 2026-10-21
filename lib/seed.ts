@@ -38,6 +38,12 @@ export function buildSeed(): Store {
     auditLogs: [],
     reminders: [],
     sessions: [],
+    plans: [],
+    subscriptions: [],
+    billingRecords: [],
+    payments: [],
+    refunds: [],
+    settlements: [],
     config: {
       commissionPct: 8,
       deliveryFeePaise: 4900,
@@ -45,6 +51,10 @@ export function buildSeed(): Store {
       refundNote:
         "Refunds for cancelled orders are processed to the original payment method within 7 working days after the shop confirms return of the goods in sealed condition.",
       lowStockThreshold: 5,
+      nearExpiryDays: 45,
+      subscriptionGraceDays: 7,
+      paymentProvider: "manual",
+      upiId: "kisankendra@demoupi",
     },
     counters: { order: 1000, customerA: 100, customerB: 100, ticket: 100 },
   };
@@ -357,6 +367,15 @@ export function buildSeed(): Store {
     inv("shop_b", "prod_4", "50 kg bag", 25, "B-1187", "2027-09-30")
   );
 
+  // Phase 2: multi-batch rows — the same product/pack held as separate
+  // batches with different expiry dates (FEFO consumption), one near-expiry
+  // batch and one already-expired batch for the alerts demo.
+  store.inventory.push(
+    inv("shop_a", "prod_1", "500 ml", 12, "A-2511", "2026-11-20"), // second batch, near expiry
+    inv("shop_a", "prod_2", "100 g", 6, "A-2390", "2026-08-31"), // expired batch (excluded from saleable stock)
+    inv("shop_b", "prod_11", "500 ml", 10, "B-1201", "2026-11-05") // near-expiry batch
+  );
+
   // ---------- A second demo farmer (served by Shop B side) ----------
   store.users.push(
     mkUser({
@@ -589,6 +608,288 @@ export function buildSeed(): Store {
     D("Maize", "Fall Armyworm", "Ragged holes in whorl leaves, sawdust-like frass, larvae with inverted Y mark on head.", "Migratory moth pest spreading rapidly.", "Scout twice a week, install traps, encourage natural enemies, follow current ICAR/state advisories.", "#3949AB"),
     D("Gram (Chana)", "Fusarium Wilt", "Plants wilt and dry in patches, roots show dark internal discoloration when split.", "Soil-borne fungus surviving in crop debris.", "Long crop rotation, wilt-resistant varieties, treat seed, avoid waterlogging.", "#6D4C41"),
     D("Chilli", "Leaf Curl Virus", "Leaves curl upward, become small and crinkled, plants stunted with few fruits.", "Virus carried by whitefly and thrips.", "Use virus-free seedlings, control vectors with IPM, remove severely infected plants, use reflective mulch.", "#C62828")
+  );
+
+  // ---------- Phase 2: subscription plans, subscriptions, billing ----------
+  const planBasic = {
+    id: "plan_basic",
+    name: "Basic (Pilot)",
+    nameHi: "बेसिक (पायलट)",
+    pricePaise: 0,
+    periodDays: 30,
+    features: ["Order management", "Customer book", "Basic stock list"],
+    featuresHi: ["ऑर्डर प्रबंधन", "ग्राहक बही", "साधारण स्टॉक सूची"],
+    active: true,
+    createdAt: daysAgo(60),
+  };
+  const planGrowth = {
+    id: "plan_growth",
+    name: "Growth",
+    nameHi: "ग्रोथ",
+    pricePaise: 49900,
+    periodDays: 30,
+    features: ["Everything in Basic", "Batch & expiry tracking", "Sales, margin & reconciliation reports", "Stock alerts"],
+    featuresHi: ["बेसिक की सभी सुविधाएँ", "बैच व समाप्ति ट्रैकिंग", "बिक्री, लाभ व मिलान रिपोर्ट", "स्टॉक चेतावनी"],
+    active: true,
+    createdAt: daysAgo(60),
+  };
+  const planPro = {
+    id: "plan_pro",
+    name: "Pro (Quarterly)",
+    nameHi: "प्रो (तिमाही)",
+    pricePaise: 99900,
+    periodDays: 90,
+    features: ["Everything in Growth", "Advanced analytics", "Priority support", "Multi-staff accounts"],
+    featuresHi: ["ग्रोथ की सभी सुविधाएँ", "उन्नत विश्लेषण", "प्राथमिकता सहायता", "एकाधिक कर्मचारी खाते"],
+    active: true,
+    createdAt: daysAgo(60),
+  };
+  store.plans.push(planBasic, planGrowth, planPro);
+
+  store.subscriptions.push(
+    {
+      id: "sub_shop_a",
+      shopId: "shop_a",
+      planId: "plan_growth",
+      status: "Active",
+      startsAt: daysAgo(20),
+      expiresAt: daysAgo(-10),
+      createdAt: daysAgo(20),
+    },
+    {
+      id: "sub_shop_b",
+      shopId: "shop_b",
+      planId: "plan_basic",
+      status: "Active",
+      startsAt: daysAgo(15),
+      expiresAt: daysAgo(-15),
+      createdAt: daysAgo(15),
+    }
+  );
+
+  store.billingRecords.push(
+    {
+      id: "bill_a1",
+      shopId: "shop_a",
+      subscriptionId: "sub_shop_a",
+      planId: "plan_growth",
+      description: "Growth plan — 30 days",
+      amountPaise: 49900,
+      method: "Manual",
+      status: "Paid",
+      reference: "Counter receipt 118 (demo)",
+      paymentId: "pay_bill_a1",
+      createdAt: daysAgo(20),
+      confirmedAt: daysAgo(20),
+      confirmedBy: "user_admin",
+    },
+    {
+      id: "bill_b1",
+      shopId: "shop_b",
+      subscriptionId: "sub_shop_b",
+      planId: "plan_basic",
+      description: "Basic (Pilot) plan — 30 days",
+      amountPaise: 0,
+      method: "Manual",
+      status: "Paid",
+      reference: "Free pilot plan",
+      createdAt: daysAgo(15),
+      confirmedAt: daysAgo(15),
+      confirmedBy: "user_admin",
+    }
+  );
+
+  // ---------- Phase 3: payment + settlement records for seeded orders ----------
+  store.payments.push(
+    {
+      id: "pay_bill_a1",
+      billingId: "bill_a1",
+      shopId: "shop_a",
+      provider: "manual",
+      amountPaise: 49900,
+      currency: "INR",
+      status: "Paid",
+      method: "manual",
+      reference: "Counter receipt 118 (demo)",
+      createdAt: daysAgo(20),
+      updatedAt: daysAgo(20),
+    },
+    {
+      id: "pay_ord_1",
+      orderId: "order_1",
+      shopId: "shop_a",
+      provider: "manual",
+      amountPaise: 60865,
+      currency: "INR",
+      status: "Paid",
+      method: "cod",
+      reference: "Cash collected on delivery (demo)",
+      createdAt: daysAgo(5, 16),
+      updatedAt: daysAgo(5, 16),
+    },
+    {
+      id: "pay_ord_2",
+      orderId: "order_2",
+      shopId: "shop_b",
+      provider: "manual",
+      amountPaise: 116935,
+      currency: "INR",
+      status: "Paid",
+      method: "cod",
+      reference: "Cash collected on delivery (demo)",
+      createdAt: daysAgo(12, 17),
+      updatedAt: daysAgo(12, 17),
+    },
+    {
+      id: "pay_ord_3",
+      orderId: "order_3",
+      shopId: "shop_a",
+      provider: "manual",
+      amountPaise: 59535,
+      currency: "INR",
+      status: "Paid",
+      method: "manual",
+      reference: "Paid at shop counter (demo)",
+      createdAt: daysAgo(3, 12),
+      updatedAt: daysAgo(3, 12),
+    }
+  );
+
+  store.settlements.push(
+    {
+      id: "stl_b_sep",
+      shopId: "shop_b",
+      periodStart: daysAgo(30),
+      periodEnd: daysAgo(1),
+      grossPaise: 116935,
+      commissionPaise: 8536,
+      supplyPaise: 93896,
+      status: "Settled",
+      createdAt: daysAgo(1),
+      settledAt: daysAgo(1),
+    },
+    {
+      id: "stl_a_open",
+      shopId: "shop_a",
+      periodStart: daysAgo(30),
+      periodEnd: daysAgo(1),
+      grossPaise: 120400,
+      commissionPaise: 4264,
+      supplyPaise: 96800,
+      status: "Open",
+      createdAt: daysAgo(1),
+    }
+  );
+
+  // ---------- Phase 3: richer order history for analytics (last 30 days) ----------
+  const priceOf = (pid: string, pack: string): { price: number; cost: number; name: string } => {
+    const p = store.products.find((x) => x.id === pid)!;
+    const pk = p.packSizes.find((x) => x.size === pack) ?? p.packSizes[0];
+    return { price: pk.pricePaise, cost: Math.round(pk.pricePaise * 0.88), name: p.name };
+  };
+  let extraNo = 1005;
+  const extraOrder = (
+    shopId: string,
+    customer: { id: string; name: string; mobile: string; village: string },
+    farmerId: string | undefined,
+    items: [string, string, number][],
+    daysBack: number,
+    status: Order["status"],
+    source: "platform" | "manual" = "platform"
+  ): void => {
+    const built = items.map(([pid, pack, qty]) => {
+      const info = priceOf(pid, pack);
+      return {
+        productId: pid,
+        productName: info.name,
+        packSize: pack,
+        qty,
+        pricePaise: info.price,
+        lineTotalPaise: info.price * qty,
+        costPaise: info.cost,
+      };
+    });
+    const itemsTotal = built.reduce((s, i) => s + i.lineTotalPaise, 0);
+    const supply = built.reduce((s, i) => s + (i.costPaise ?? 0) * i.qty, 0);
+    const delivery = source === "manual" ? 0 : store.config.deliveryFeePaise;
+    const tax = Math.round((itemsTotal * store.config.taxPct) / 100);
+    const commission = source === "manual" ? 0 : Math.round((itemsTotal * store.config.commissionPct) / 100);
+    const id = `order_x${extraNo}`;
+    const delivered = status === "Delivered";
+    store.orders.push({
+      id,
+      orderNo: `KK-ORD-${extraNo}`,
+      farmerId,
+      customerId: customer.id,
+      customerName: customer.name,
+      mobile: customer.mobile,
+      village: customer.village,
+      addressLine: `${customer.village} (demo address)`,
+      deliveryType: "home",
+      items: built,
+      itemsTotalPaise: itemsTotal,
+      deliveryFeePaise: delivery,
+      taxPaise: tax,
+      totalPaise: itemsTotal + delivery + tax,
+      supplyTotalPaise: supply,
+      commissionPaise: commission,
+      paymentMethod: source === "manual" ? "Manual" : "COD",
+      paymentStatus: delivered ? "Paid" : status === "Cancelled" ? "Refunded" : "Pending",
+      source,
+      shopId,
+      status,
+      createdAt: daysAgo(daysBack, 11),
+      updatedAt: daysAgo(daysBack, 15),
+    });
+    hist(id, "Pending", farmerId ?? "shop", farmerId ? "farmer" : "shop_owner", daysAgo(daysBack, 11), "Order placed");
+    if (delivered) hist(id, "Delivered", shopId === "shop_a" ? "user_shopa" : "user_shopb", "shop_owner", daysAgo(daysBack, 15));
+    if (delivered) {
+      store.payments.push({
+        id: `pay_${id}`,
+        orderId: id,
+        shopId,
+        provider: "manual",
+        amountPaise: itemsTotal + delivery + tax,
+        currency: "INR",
+        status: "Paid",
+        method: source === "manual" ? "manual" : "cod",
+        reference: "Seeded demo payment",
+        createdAt: daysAgo(daysBack, 15),
+        updatedAt: daysAgo(daysBack, 15),
+      });
+    }
+    extraNo += 1;
+  };
+  const cA1 = { id: custA1.id, name: custA1.name, mobile: custA1.mobile, village: custA1.village };
+  const cA2 = { id: custA2.id, name: custA2.name, mobile: custA2.mobile, village: custA2.village };
+  const cA3 = { id: custA3.id, name: custA3.name, mobile: custA3.mobile, village: custA3.village };
+  const cA5 = { id: custA5.id, name: custA5.name, mobile: custA5.mobile, village: custA5.village };
+  const cB1 = { id: custB1.id, name: custB1.name, mobile: custB1.mobile, village: custB1.village };
+  const cB2 = { id: custB2.id, name: custB2.name, mobile: custB2.mobile, village: custB2.village };
+  const cB3 = { id: custB3.id, name: custB3.name, mobile: custB3.mobile, village: custB3.village };
+  extraOrder("shop_a", cA1, "user_farmer", [["prod_4", "50 kg bag", 1]], 28, "Delivered");
+  extraOrder("shop_a", cA2, undefined, [["prod_3", "45 kg bag", 3]], 25, "Delivered");
+  extraOrder("shop_b", cB1, "user_farmer2", [["prod_3", "45 kg bag", 2]], 24, "Delivered");
+  extraOrder("shop_a", cA3, undefined, [["prod_5", "250 g", 2], ["prod_10", "1 kg", 1]], 21, "Delivered");
+  extraOrder("shop_b", cB2, undefined, [["prod_7", "400 ml", 2]], 19, "Delivered");
+  extraOrder("shop_a", cA1, "user_farmer", [["prod_1", "500 ml", 1], ["prod_12", "5 kg", 1]], 17, "Delivered");
+  extraOrder("shop_b", cB3, undefined, [["prod_11", "500 ml", 2]], 15, "Delivered");
+  extraOrder("shop_a", cA5, undefined, [["prod_14", "50 kg bag", 2]], 13, "Delivered", "manual");
+  extraOrder("shop_b", cB1, "user_farmer2", [["prod_9", "100 ml", 3]], 10, "Delivered");
+  extraOrder("shop_a", cA2, undefined, [["prod_4", "50 kg bag", 1], ["prod_3", "45 kg bag", 1]], 8, "Delivered");
+  extraOrder("shop_b", cB2, undefined, [["prod_5", "250 g", 1]], 6, "Cancelled");
+  extraOrder("shop_a", cA1, "user_farmer", [["prod_8", "1 L", 2]], 4, "Delivered");
+  store.counters.order = extraNo - 1;
+
+  // ---------- Phase 3: expanded disease library (17 entries) ----------
+  store.diseases.push(
+    D("Wheat", "Loose Smut", "Black powdery masses replace the grain in ears at heading stage.", "Fungus carried inside the seed from the previous crop.", "Use certified seed, treat seed before sowing, remove and bury smutted ears carefully in a bag before they burst.", "#795548"),
+    D("Paddy", "Sheath Blight", "Oval grey-green lesions on the leaf sheath near the water line, spreading upward.", "Fungus surviving in soil and crop stubble, favoured by dense planting and high nitrogen.", "Avoid excess nitrogen, space plants properly, remove stubble, and follow local agriculture department advisories.", "#26A69A"),
+    D("Cotton", "Boll Rot", "Bolls turn dark, rot from inside and fail to open properly, lint discoloured.", "Fungi and bacteria entering through insect injury in wet weather.", "Control bollworms, avoid waterlogging, pick and destroy rotten bolls, keep the field clean of weeds.", "#AB47BC"),
+    D("Tomato", "Early Blight", "Dark concentric ring spots on older leaves, yellowing and leaf drop from bottom upward.", "Fungus in crop debris and soil, spread by splashing water.", "Rotate crops, mulch to reduce splashing, remove affected leaves, and seek current local fungicide advisories.", "#EF5350"),
+    D("Onion", "Purple Blotch", "Purple-brown sunken spots with yellow halos on leaves, leaves dry from the tip.", "Fungus favoured by warm humid weather and dew.", "Wider spacing, avoid overhead irrigation late in the day, rotate with non-onion crops for two seasons.", "#7E57C2"),
+    D("Sugarcane", "Red Rot", "Reddened internal tissue with white cross bands when the cane is split, sour smell.", "Fungus carried in infected seed cane and crop debris.", "Plant only healthy seed cane from a trusted source, treat setts, remove and burn infected clumps, long rotation.", "#D32F2F"),
+    D("Soybean", "Charcoal Rot", "Plants wilt in dry patches during hot weather; stem base shows grey-black specks under the bark.", "Soil fungus that attacks water-stressed plants.", "Avoid moisture stress at flowering, maintain plant population, rotate with cereals, deep summer ploughing.", "#546E7A")
   );
 
   store.auditLogs.push({

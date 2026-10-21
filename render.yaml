@@ -1,0 +1,33 @@
+# Kisankendra — Render Blueprint (free tier, ₹0)
+# Deploy path the owner chose on 2026-10-21: preview-check first (Codespaces),
+# then public hosting on Render/Oracle. With this file in the GitHub repo,
+# Render Dashboard → New + → Blueprint → select lsr018-star/Kisankendra
+# creates the service with these exact settings — no manual form entries
+# (Build Command / Start Command / plan) to mistype.
+#
+# Verified locally 2026-10-21:
+# - Build/start commands match package.json scripts and the manual steps
+#   already given to the owner.
+# - `next start` reads its port from the PORT environment variable
+#   (Next.js CLI: -p option has .env('PORT'), default 3000), and Render
+#   injects PORT automatically — so `npm run start` works as-is.
+# - No env vars or secrets are required for the Phase 1 demo.
+#
+# Honest limitations (same as Vercel):
+# - Free plan: service sleeps after ~15 min idle; first load then takes ~1 min.
+# - Filesystem is ephemeral: demo data (data/store.json, git-ignored) resets
+#   to the seed on redeploy/restart. Durable data = Phase 2 Supabase/PostgreSQL
+#   switch in db/ (free tier), unchanged.
+services:
+  - type: web
+    name: kisankendra
+    runtime: node
+    region: singapore # nearest Render region to Madhya Pradesh, India
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production

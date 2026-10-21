@@ -34,6 +34,21 @@ declare global {
   var __kkStore: Store | undefined;
 }
 
+// Stores saved by earlier phases lack the Phase 2/3 collections and config
+// keys. Fill defaults so a dev store.json from Phase 1 keeps working.
+export function normaliseStore(store: Store): Store {
+  const s = store as unknown as Record<string, unknown>;
+  for (const key of ["plans", "subscriptions", "billingRecords", "payments", "refunds", "settlements"]) {
+    if (!Array.isArray(s[key])) s[key] = [];
+  }
+  const cfg = store.config as unknown as Record<string, unknown>;
+  if (typeof cfg.nearExpiryDays !== "number") cfg.nearExpiryDays = 45;
+  if (typeof cfg.subscriptionGraceDays !== "number") cfg.subscriptionGraceDays = 7;
+  if (typeof cfg.paymentProvider !== "string") cfg.paymentProvider = "manual";
+  if (typeof cfg.upiId !== "string") cfg.upiId = "kisankendra@demoupi";
+  return store;
+}
+
 export function loadStore(): Store {
   if (globalThis.__kkStore) return globalThis.__kkStore;
   let store: Store | undefined;
@@ -53,7 +68,7 @@ export function loadStore(): Store {
     store = buildSeed();
     persist(store);
   }
-  globalThis.__kkStore = store;
+  globalThis.__kkStore = normaliseStore(store);
   return store;
 }
 
