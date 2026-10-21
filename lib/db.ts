@@ -49,8 +49,19 @@ export function normaliseStore(store: Store): Store {
   return store;
 }
 
+import { pgEnabled, queuePgPersist } from "./pg";
+
 export function loadStore(): Store {
   if (globalThis.__kkStore) return globalThis.__kkStore;
+  // Postgres mode: the store is hydrated at boot by instrumentation
+  // (lib/db-pg-boot.ts). Reaching here un-hydrated means boot hydration did
+  // not run — fail loudly rather than silently serving seed data.
+  if (pgEnabled()) {
+    throw new Error(
+      "DATABASE_URL is set but the store was not hydrated from Postgres. " +
+        "Ensure instrumentation.ts is enabled so register() runs at boot.",
+    );
+  }
   let store: Store | undefined;
   for (const dir of CANDIDATE_DIRS) {
     const file = storeFileIn(dir);
@@ -73,6 +84,10 @@ export function loadStore(): Store {
 }
 
 export function persist(store: Store): void {
+  if (pgEnabled()) {
+    queuePgPersist(store);
+    return;
+  }
   const dirs = activeDir ? [activeDir, ...CANDIDATE_DIRS.filter((d) => d !== activeDir)] : CANDIDATE_DIRS;
   const payload = JSON.stringify(store, null, 2);
   for (const dir of dirs) {
