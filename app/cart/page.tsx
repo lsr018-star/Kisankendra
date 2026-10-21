@@ -126,8 +126,8 @@ export default function CartPage() {
         <ul className="mt-3 divide-y">
           {cart.items.map((i) => (
             <li key={i.productId + i.packSize} className="flex flex-wrap items-center gap-3 py-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-lg font-bold text-white" style={{ background: i.tileColor }} aria-hidden="true">
-                {i.initials}
+              <span className="flex h-11 w-11 items-center justify-center rounded-lg" style={{ background: i.tileColor }} aria-hidden="true">
+                <svg viewBox="0 0 24 24" className="h-6 w-6"><path d="M12 20 C6 16 5 8 12 3 C19 8 18 16 12 20 Z" fill="#fbf7ec" opacity="0.92" /><path d="M12 18 C12 13 13 9 16 6" stroke={i.tileColor} strokeWidth="1.6" fill="none" strokeLinecap="round" /></svg>
               </span>
               <span className="min-w-[160px] flex-1">
                 <span className="block font-semibold">{i.productName}</span>
@@ -218,7 +218,7 @@ export default function CartPage() {
               <p className="mt-1 text-xs text-neutral-500">Online payment will be enabled after the payment gateway and settlement model are set up. Until then, orders are confirmed manually — no card details are ever collected here.</p>
             </fieldset>
             {error && <p className="rounded-lg bg-red-50 p-3 text-red-800" role="alert">{error}</p>}
-            <button type="submit" disabled={placing} className="btn-primary w-full">
+            <button type="submit" disabled={placing} className="btn-primary min-h-[52px] w-full text-base">
               {placing ? "Placing order…" : t("placeOrder")}
             </button>
             {refundNote && <p className="text-xs text-neutral-500">{refundNote}</p>}

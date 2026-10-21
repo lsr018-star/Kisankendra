@@ -4,6 +4,7 @@ import Link from "next/link";
 import { inr } from "@/lib/money";
 import { useLang } from "./LanguageProvider";
 import { useCart } from "./CartProvider";
+import ProductArt from "./ProductArt";
 
 export interface ProductView {
   id: string;
@@ -17,20 +18,10 @@ export interface ProductView {
   crops: string[];
 }
 
-export function ProductTile({ name, color }: { name: string; color: string }) {
-  const initials = name
-    .split(" ")
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
+export function ProductTile({ name, color, category = "Pesticides" }: { name: string; color: string; category?: string }) {
   return (
-    <div
-      aria-hidden="true"
-      className="flex h-28 w-full items-center justify-center rounded-t-xl text-3xl font-extrabold text-white"
-      style={{ background: `linear-gradient(135deg, ${color}, ${color}CC)` }}
-    >
-      {initials}
+    <div className="overflow-hidden rounded-t-xl">
+      <ProductArt name={name} color={color} category={category} />
     </div>
   );
 }
@@ -50,7 +41,7 @@ export default function ProductCard({ product }: { product: ProductView }) {
   return (
     <div className="flex flex-col overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-leaf-100">
       <Link href={`/products/${product.id}`} aria-label={product.name}>
-        <ProductTile name={product.name} color={product.tileColor} />
+        <ProductTile name={product.name} color={product.tileColor} category={product.category} />
       </Link>
       <div className="flex flex-1 flex-col gap-1.5 p-3">
         <span className={`self-start rounded-full px-2 py-0.5 text-xs font-semibold ${badge.cls}`}>{badge.text}</span>
@@ -79,7 +70,7 @@ export default function ProductCard({ product }: { product: ProductView }) {
               initials: product.initials,
             })
           }
-          className="mt-1 min-h-[44px] rounded-lg bg-leaf-600 px-3 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:bg-neutral-300 hover:bg-leaf-700"
+          className="mt-1 min-h-[48px] rounded-lg bg-leaf-600 px-3 py-2 text-base font-semibold text-white disabled:cursor-not-allowed disabled:bg-neutral-300 hover:bg-leaf-700"
         >
           {t("addToCart")} ({defaultPack.size})
         </button>

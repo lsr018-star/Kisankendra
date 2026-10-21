@@ -51,7 +51,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   return (
     <div className="grid gap-5 md:grid-cols-2">
       <div className="overflow-hidden rounded-xl ring-1 ring-leaf-100">
-        <ProductTile name={product.name} color={product.tileColor} />
+        <ProductTile name={product.name} color={product.tileColor} category={product.category} />
         <div className="bg-white p-4">
           <p className="text-sm text-neutral-600">SKU: {product.sku}</p>
           <p className="mt-2 text-neutral-800">{product.description}</p>
