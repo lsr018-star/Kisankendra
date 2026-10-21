@@ -29,7 +29,18 @@ export interface SessionUser {
   village?: string;
 }
 
-export async function fetchMe(): Promise<{ user: SessionUser; shop?: { id: string; name: string; status: string } } | null> {
+export interface SessionShop {
+  id: string;
+  name: string;
+  status: string;
+  licencesVerified?: boolean;
+  licences?: { pesticideNo: string; pesticideExpiry: string; fertilizerNo: string; fertilizerExpiry: string; verified: boolean };
+  villages?: string[];
+  deliveryCapable?: boolean;
+  address?: string;
+}
+
+export async function fetchMe(): Promise<{ user: SessionUser; shop?: SessionShop } | null> {
   try {
     return await api("/api/auth/me");
   } catch {

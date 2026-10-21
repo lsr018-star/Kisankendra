@@ -23,9 +23,13 @@ export default function ShopNav() {
 
   const links = [
     { href: "/shop", label: t("dashboard") },
+    { href: "/shop/onboarding", label: t("onboarding") },
     { href: "/shop/customers", label: t("customers") },
     { href: "/shop/orders", label: t("orders") },
     { href: "/shop/inventory", label: t("inventory") },
+    { href: "/shop/reports", label: t("reports") },
+    { href: "/shop/analytics", label: t("analytics") },
+    { href: "/shop/subscription", label: t("subscriptions") },
     { href: "/shop/reminders", label: t("reminders") },
   ];
 

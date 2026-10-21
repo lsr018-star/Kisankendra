@@ -15,8 +15,11 @@ interface DashData {
     salesRecordedPaise: number;
     pendingOrders: number;
     lowStockCount: number;
+    nearExpiryCount: number;
+    expiredCount: number;
   };
   lowStock: { inventoryId: string; productName: string; packSize: string; stock: number; reserved: number; available: number }[];
+  expiryAlerts: { inventoryId: string; productName: string; packSize: string; batch: string; expiry: string; daysToExpiry: number; expired: boolean; stock: number }[];
   recentOrders: { id: string; orderNo: string; customerName: string; totalPaise: number; status: string; source: string; createdAt: string }[];
   notifications: { id: string; text: string; at: string }[];
 }
@@ -54,6 +57,23 @@ export default function ShopDashboard() {
               </div>
             ))}
           </div>
+
+          <section className="card" aria-label="Expiry alerts">
+            <h2 className="font-bold text-leaf-900">{t("alerts")} — {t("expiryDate")}</h2>
+            {data.expiryAlerts.length === 0 && <p className="mt-1 text-neutral-600">No batches are expired or near expiry.</p>}
+            <ul className="mt-2 divide-y">
+              {data.expiryAlerts.map((a) => (
+                <li key={a.inventoryId} className="flex flex-wrap items-center gap-2 py-2">
+                  <span>{a.productName} ({a.packSize}) · {t("batch")} {a.batch}</span>
+                  <span className={`ml-auto rounded-full px-2.5 py-0.5 text-xs font-bold ${a.expired ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-900"}`}>
+                    {a.expired ? t("expired") : `${t("nearExpiry")} · ${a.daysToExpiry}d`}
+                  </span>
+                  <span className="text-sm text-neutral-600">{a.expiry}</span>
+                </li>
+              ))}
+            </ul>
+            <Link href="/shop/inventory" className="btn-secondary mt-3">{t("batches")}</Link>
+          </section>
 
           <div className="grid gap-4 lg:grid-cols-2">
             <section className="card" aria-label="Low stock">

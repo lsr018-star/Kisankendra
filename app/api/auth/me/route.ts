@@ -9,7 +9,7 @@ export async function GET() {
   let shop = undefined;
   if (user.shopId) {
     const s = store.shops.find((x) => x.id === user.shopId);
-    if (s) shop = { id: s.id, name: s.name, status: s.status, licencesVerified: s.licences.verified };
+    if (s) shop = { id: s.id, name: s.name, status: s.status, licencesVerified: s.licences.verified, licences: s.licences, villages: s.villages, deliveryCapable: s.deliveryCapable, address: s.address };
   }
   return json({ user: publicUser(user), shop });
 }

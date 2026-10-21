@@ -13,6 +13,10 @@ export default function AdminNav() {
     { href: "/admin/products", label: t("products") },
     { href: "/admin/orders", label: t("orders") },
     { href: "/admin/tickets", label: t("tickets") },
+    { href: "/admin/reports", label: t("reports") },
+    { href: "/admin/analytics", label: t("analytics") },
+    { href: "/admin/plans", label: t("plans") },
+    { href: "/admin/settlements", label: t("settlements") },
     { href: "/admin/users", label: t("users") },
     { href: "/admin/config", label: t("config") },
   ];

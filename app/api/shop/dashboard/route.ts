@@ -1,6 +1,7 @@
 import { loadStore } from "@/lib/db";
 import { isResponse, json, requireShopUser } from "@/lib/api-helpers";
 import { OPEN_STATUSES } from "@/lib/assignment";
+import { daysToExpiry, isExpired } from "@/lib/products";
 
 export async function GET() {
   const user = await requireShopUser();
@@ -30,6 +31,25 @@ export async function GET() {
       reserved: i.reserved,
       available: i.stock - i.reserved,
     }));
+  const expiryAlerts = myInventory
+    .map((i) => {
+      const expired = isExpired(i);
+      const dte = daysToExpiry(i);
+      return {
+        inventoryId: i.id,
+        productId: i.productId,
+        productName: store.products.find((p) => p.id === i.productId)?.name ?? i.productId,
+        packSize: i.packSize,
+        batch: i.batch,
+        expiry: i.expiry,
+        daysToExpiry: dte,
+        expired,
+        stock: i.stock,
+      };
+    })
+    .filter((a) => a.expired || a.daysToExpiry <= store.config.nearExpiryDays)
+    .sort((a, b) => a.daysToExpiry - b.daysToExpiry)
+    .slice(0, 8);
   const sales = myOrders
     .filter((o) => o.status === "Delivered")
     .reduce((sum, o) => sum + o.totalPaise, 0);
@@ -42,8 +62,11 @@ export async function GET() {
       salesRecordedPaise: sales,
       pendingOrders: myOrders.filter((o) => OPEN_STATUSES.includes(o.status)).length,
       lowStockCount: lowStock.length,
+      nearExpiryCount: expiryAlerts.filter((a) => !a.expired).length,
+      expiredCount: expiryAlerts.filter((a) => a.expired).length,
     },
     lowStock,
+    expiryAlerts,
     recentOrders: [...myOrders].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 6).map((o) => ({
       id: o.id,
       orderNo: o.orderNo,
