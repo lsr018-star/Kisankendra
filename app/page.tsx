@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/client";
 import { useLang } from "@/components/LanguageProvider";
 import ProductCard, { type ProductView } from "@/components/ProductCard";
+import DiseaseArt from "@/components/DiseaseArt";
 import { VILLAGES } from "@/lib/villages";
 
 interface Disease {
@@ -223,11 +224,21 @@ export default function HomePage() {
           agricultural sources — <strong>not a definitive diagnosis</strong>. For confirmation, submit a Solution
           Box request or contact your local agriculture department.
         </p>
-        <label className="label mt-3" htmlFor="df-q">Search by crop, disease or symptom</label>
+        <Link
+          href="/diseases"
+          className="mt-4 flex min-h-[64px] items-center justify-between gap-3 rounded-xl bg-leaf-700 px-5 text-lg font-bold text-white hover:bg-leaf-800"
+        >
+          <span>Browse by Crop — select your crop, see all its diseases with photos</span>
+          <span aria-hidden="true" className="text-2xl">→</span>
+        </Link>
+        <label className="label mt-4" htmlFor="df-q">Search by crop, disease or symptom</label>
         <input id="df-q" className="input" value={diseaseQ} onChange={(e) => setDiseaseQ(e.target.value)} placeholder="e.g. soybean, rust, yellowing" />
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {diseases.map((d) => (
             <article key={d.id} className="rounded-xl ring-1 ring-leaf-100 p-4 bg-cream/60">
+              <div className="-mx-4 -mt-4 mb-3 overflow-hidden rounded-t-xl">
+                <DiseaseArt name={d.disease} symptoms={d.symptoms} color={d.tileColor} />
+              </div>
               <h3 className="font-bold text-leaf-900">
                 <span className="mr-2 inline-block h-3 w-3 rounded-full" style={{ background: d.tileColor }} aria-hidden="true" />
                 {d.crop} — {d.disease}
