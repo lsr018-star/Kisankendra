@@ -19,6 +19,7 @@ export const dict = {
   fertilizers: { en: "Fertilizers", hi: "उर्वरक" },
   solutionBox: { en: "Solution Box", hi: "समाधान बॉक्स" },
   diseaseFinder: { en: "Disease Finder", hi: "रोग खोजक" },
+  sowingGuide: { en: "Sowing Guide", hi: "बुवाई गाइड" },
   howItWorks: { en: "How Kisankendra Works", hi: "किसानकेंद्र कैसे काम करता है" },
   deliveryInfo: { en: "Home & Field Delivery", hi: "घर और खेत डिलीवरी" },
   benefits: { en: "Benefits", hi: "फ़ायदे" },

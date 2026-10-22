@@ -59,6 +59,9 @@ export default function Header() {
             <Link href="/diseases" className="hidden md:flex rounded-lg px-2.5 py-2 hover:bg-leaf-700 min-h-[44px] items-center">
               {t("diseaseFinder")}
             </Link>
+            <Link href="/sowing" className="hidden md:flex rounded-lg px-2.5 py-2 hover:bg-leaf-700 min-h-[44px] items-center">
+              {t("sowingGuide")}
+            </Link>
             <Link href="/cart" className="rounded-lg px-2.5 py-2 hover:bg-leaf-700 min-h-[44px] flex items-center">
               {t("cart")}
               {count > 0 && (

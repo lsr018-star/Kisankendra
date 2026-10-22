@@ -231,6 +231,13 @@ export default function HomePage() {
           <span>Browse by Crop — select your crop, see all its diseases with photos</span>
           <span aria-hidden="true" className="text-2xl">→</span>
         </Link>
+        <Link
+          href="/sowing"
+          className="mt-3 flex min-h-[64px] items-center justify-between gap-3 rounded-xl bg-tang-500 px-5 text-lg font-bold text-white hover:bg-tang-600"
+        >
+          <span>Sowing Guide — crop-wise sowing time, seed rate &amp; spacing</span>
+          <span aria-hidden="true" className="text-2xl">→</span>
+        </Link>
         <label className="label mt-4" htmlFor="df-q">Search by crop, disease or symptom</label>
         <input id="df-q" className="input" value={diseaseQ} onChange={(e) => setDiseaseQ(e.target.value)} placeholder="e.g. soybean, rust, yellowing" />
         <div className="mt-4 grid gap-3 md:grid-cols-2">
