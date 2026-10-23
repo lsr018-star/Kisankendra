@@ -98,9 +98,12 @@ export default function HomePage() {
             {t("shopLogin")}
           </Link>
           <Link href="/register/shop" className="rounded-lg border-2 border-leaf-300 px-5 py-2.5 font-semibold text-leaf-100 min-h-[44px] flex items-center">
-            Register Your Shop
+            New Shop? Register Here
           </Link>
         </div>
+        <p className="mt-2 text-xs text-leaf-200">
+          Shop owners — already registered? Use Shop Login. New shop? Register first; selling starts after owner approval.
+        </p>
         <p className="mt-4 text-sm text-leaf-200">
           Now serving: {VILLAGES.join(", ")} — Narmadapuram district, Madhya Pradesh.
         </p>

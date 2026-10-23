@@ -41,7 +41,11 @@ function LoginInner() {
       <h1 className="text-2xl font-bold text-leaf-900">
         {as === "shop" ? t("shopLogin") : as === "farmer" ? t("farmerLogin") : as === "admin" ? "Owner Login" : t("login")}
       </h1>
-      <p className="mt-1 text-sm text-neutral-600">Use your email or mobile number and password.</p>
+      <p className="mt-1 text-sm text-neutral-600">
+        {as === "shop"
+          ? "For shops that are already registered and approved. New shop? Use “Register your shop” below — login starts after owner approval."
+          : "Use your email or mobile number and password."}
+      </p>
       <div className="mt-3 flex gap-2" role="navigation" aria-label="Login type">
         <Link
           href="/login?as=farmer"
