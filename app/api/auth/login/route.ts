@@ -17,12 +17,7 @@ export async function POST(req: Request) {
   }
   // Stateless signed token: verifiable by every server instance, unlike a
   // server-side session row (see lib/password.ts).
-  let token: string;
-  try {
-    token = createSessionToken(user.id);
-  } catch {
-    return fail("Login is not configured on the server yet. Please try again later.", 500);
-  }
+  const token = createSessionToken(user.id);
   audit(store, user.id, user.role, "auth.login", "user", user.id, "User logged in");
   saveStore();
 

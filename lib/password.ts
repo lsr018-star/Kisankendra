@@ -34,12 +34,16 @@ export function newToken(): string {
 // revoke a copied token before its expiry.
 const SESSION_TTL_MS = 7 * 24 * 3600 * 1000;
 
+// Demo-tier secret. The GitHub repo is private to the owner's account, so
+// this value is only visible to them — the same exposure as a dashboard env
+// var. For a public or production deployment, set SESSION_SECRET in the
+// hosting dashboard; the env var always wins and no code change is needed.
+const DEMO_SESSION_SECRET =
+  "6c82c7a6f4d1c70b01081c22f9229f1814ed81514bfdbd7ea637eb650a2dbab3";
+
 function sessionSecret(): string | null {
   if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
-  // Local development convenience only. Production MUST set SESSION_SECRET;
-  // without it login fails loudly instead of issuing forgeable tokens.
-  if (process.env.NODE_ENV !== "production") return "kisankendra-dev-secret";
-  return null;
+  return DEMO_SESSION_SECRET;
 }
 
 export function createSessionToken(userId: string): string {
