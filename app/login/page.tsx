@@ -95,9 +95,6 @@ function LoginInner() {
           New partner shop? <Link href="/register/shop" className="font-semibold text-leaf-700 underline">Register your shop</Link>
         </p>
       </div>
-      <div className="mt-4 rounded-lg bg-cream p-3 text-xs text-neutral-600">
-        Demo logins — Farmer: 9876543210 / farmer123 · Shop A: shopa@kisankendra.in / shop123 · Admin: admin@kisankendra.in / admin123
-      </div>
     </div>
   );
 }

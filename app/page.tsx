@@ -266,12 +266,9 @@ export default function HomePage() {
       <section className="card bg-leaf-50" aria-label="Demo access">
         <h2 className="font-bold text-leaf-900">Try the demo</h2>
         <p className="text-sm text-neutral-700">{t("demoData")}</p>
-        <ul className="mt-2 grid gap-1 text-sm sm:grid-cols-2">
-          <li>Farmer: mobile <strong>9876543210</strong> / password <strong>farmer123</strong></li>
-          <li>Shop A owner: <strong>shopa@kisankendra.in</strong> / <strong>shop123</strong></li>
-          <li>Shop B owner: <strong>shopb@kisankendra.in</strong> / <strong>shop123</strong></li>
-          <li>Admin: <strong>admin@kisankendra.in</strong> / <strong>admin123</strong></li>
-        </ul>
+        <p className="mt-2 text-sm text-neutral-700">
+          Demo accounts are available for testing — sign in from the login page.
+        </p>
         <p className="mt-2 text-sm">
           Questions? Read the <Link href="/faq" className="underline font-semibold">{t("faq")}</Link> or{" "}
           <Link href="/contact" className="underline font-semibold">{t("contact")}</Link> us.
