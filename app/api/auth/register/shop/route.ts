@@ -1,4 +1,5 @@
 import { loadStore, saveStore, audit } from "@/lib/db";
+import { pgEnabled, flushPgWrites } from "@/lib/pg";
 import { fail, json } from "@/lib/api-helpers";
 import { hashPassword, publicUser } from "@/lib/auth";
 import { uid } from "@/lib/password";
@@ -62,5 +63,6 @@ export async function POST(req: Request) {
   store.users.push(user);
   audit(store, user.id, "shop_owner", "shop.register", "shop", shop.id, "Shop registered, status Pending");
   saveStore();
+  if (pgEnabled()) await flushPgWrites();
   return json({ user: publicUser(user), shopId: shop.id, status: shop.status }, 201);
 }

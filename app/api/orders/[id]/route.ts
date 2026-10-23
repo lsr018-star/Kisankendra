@@ -1,4 +1,5 @@
 import { loadStore, saveStore, audit } from "@/lib/db";
+import { pgEnabled, flushPgWrites } from "@/lib/pg";
 import { currentUser, fail, json } from "@/lib/api-helpers";
 import { hasPermission } from "@/lib/auth";
 import {
@@ -73,6 +74,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     recordHistory(store, order, "Cancelled", user.id, "farmer", String(body?.reason ?? "Cancelled by customer"));
     audit(store, user.id, "farmer", "order.cancel", "order", order.id, `Order ${order.orderNo} cancelled`);
     saveStore();
+    if (pgEnabled()) await flushPgWrites();
     return json({ order: serializeOrder(order, user) });
   }
 
@@ -88,6 +90,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     recordHistory(store, order, "Pending", user.id, "admin", `Manually assigned to ${shop.name}`);
     audit(store, user.id, "admin", "order.assign", "order", order.id, `Manual assignment to ${shop.name}`);
     saveStore();
+    if (pgEnabled()) await flushPgWrites();
     return json({ order: serializeOrder(order, user) });
   }
 
@@ -105,6 +108,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     recordHistory(store, order, "Accepted", user.id, user.role, "Shop accepted the order");
     audit(store, user.id, user.role, "order.accept", "order", order.id, order.orderNo);
     saveStore();
+    if (pgEnabled()) await flushPgWrites();
     return json({ order: serializeOrder(order, user) });
   }
 
@@ -131,6 +135,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
     audit(store, user.id, user.role, "order.reject", "order", order.id, order.orderNo);
     saveStore();
+    if (pgEnabled()) await flushPgWrites();
     return json({ order: serializeOrder(order, user) });
   }
 
@@ -164,6 +169,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     recordHistory(store, order, nextStatus, user.id, user.role, body?.note ? String(body.note) : undefined);
     audit(store, user.id, user.role, "order.status", "order", order.id, `${order.orderNo} -> ${nextStatus}`);
     saveStore();
+    if (pgEnabled()) await flushPgWrites();
     return json({ order: serializeOrder(order, user) });
   }
 

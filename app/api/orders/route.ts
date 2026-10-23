@@ -1,4 +1,5 @@
 import { loadStore, saveStore, nextSeq, audit } from "@/lib/db";
+import { pgEnabled, flushPgWrites } from "@/lib/pg";
 import { currentUser, fail, json } from "@/lib/api-helpers";
 import { pctOf } from "@/lib/money";
 import { assignOrder, recordHistory } from "@/lib/assignment";
@@ -114,5 +115,8 @@ export async function POST(req: Request) {
   store.orders.push(order);
   audit(store, user.id, "farmer", "order.create", "order", order.id, `Order ${order.orderNo} total ${order.totalPaise}`);
   saveStore();
+  // Orders must be durable before we answer (same serverless freeze risk
+  // as registrations).
+  if (pgEnabled()) await flushPgWrites();
   return json({ order: serializeOrder(order, user) }, 201);
 }

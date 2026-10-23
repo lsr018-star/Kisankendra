@@ -2,6 +2,7 @@ import { loadStore, saveStore, audit } from "@/lib/db";
 import { fail, json } from "@/lib/api-helpers";
 import { hashPassword, publicUser } from "@/lib/auth";
 import { uid } from "@/lib/password";
+import { pgEnabled, flushPgWrites } from "@/lib/pg";
 import type { User } from "@/lib/types";
 
 export async function POST(req: Request) {
@@ -37,5 +38,8 @@ export async function POST(req: Request) {
   store.users.push(user);
   audit(store, user.id, "farmer", "auth.register", "user", user.id, "Farmer registered");
   saveStore();
+  // A registration must be durable before we answer: on serverless the
+  // fire-and-forget write queue can be frozen before it lands.
+  if (pgEnabled()) await flushPgWrites();
   return json({ user: publicUser(user) }, 201);
 }

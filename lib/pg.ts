@@ -8,8 +8,9 @@ import type { Store } from "./types";
 // The application keeps its synchronous store interface (lib/db.ts): the
 // whole store is hydrated into memory once at server boot (instrumentation
 // register()) and every save is written back through a serialised async
-// queue as one transaction per save (truncate + insert per collection —
-// atomic, so readers never see a half-written state). Collection rows live
+// queue as one transaction per save (upsert-merge per collection —
+// atomic, so readers never see a half-written state, and a save from a
+// stale-hydrated instance can never delete newer records). Collection rows live
 // in the tables created by db/pg-runtime-schema.sql: record id as primary
 // key, full record as JSONB, generated shop_id + RLS on shop-scoped tables.
 //
@@ -106,11 +107,18 @@ async function persistAll(store: Store): Promise<void> {
   try {
     await client.query("begin");
     await client.query("set app.bypass_rls = 'on'");
+    // Upsert-merge, NOT truncate+replace: on serverless, several instances
+    // hold snapshots hydrated at different times. A truncate+replace save
+    // from a stale instance silently deletes records created after its
+    // hydration (this is how a live registration vanished on 2026-10-23).
+    // Merging by id means a save can never delete another instance's
+    // records. Trade-off: a record deleted in one instance's memory is not
+    // deleted here (deletions are rare in this app — status changes are
+    // updates, not deletes — and sessions no longer rely on store rows).
     for (const name of COLLECTIONS) {
       const table = TABLE_BY_COLLECTION[name];
       const rows = (store[name] as unknown as Record<string, unknown>[]) ?? [];
-      await client.query(`truncate table "${table}"`);
-      // Bulk multi-row inserts: one round-trip per chunk keeps the write
+      // Bulk multi-row upserts: one round-trip per chunk keeps the write
       // queue fast enough that a save lands in well under a second.
       // Row key: most records carry `id`; sessions are keyed by `token`.
       const CHUNK = 400;
@@ -125,12 +133,24 @@ async function persistAll(store: Store): Promise<void> {
           params.push(key, JSON.stringify(row));
           return `($${j * 2 + 1}, $${j * 2 + 2}::jsonb)`;
         });
-        await client.query(`insert into "${table}" (id, doc) values ${tuples.join(", ")}`, params);
+        await client.query(
+          `insert into "${table}" (id, doc) values ${tuples.join(", ")} on conflict (id) do update set doc = excluded.doc, updated_at = now()`,
+          params,
+        );
       }
+    }
+    // Counters must never roll backwards (a stale instance would reuse
+    // order numbers): merge with what is already stored, keeping the max.
+    const existing = await client.query<{ doc: Record<string, number> }>(
+      "select doc from kk_meta where key = 'counters'",
+    );
+    const mergedCounters: Record<string, number> = { ...(store.counters ?? {}) };
+    for (const [k, v] of Object.entries(existing.rows[0]?.doc ?? {})) {
+      if (typeof v === "number") mergedCounters[k] = Math.max(mergedCounters[k] ?? 0, v);
     }
     await client.query(
       "insert into kk_meta (key, doc) values ('config', $1::jsonb), ('counters', $2::jsonb) on conflict (key) do update set doc = excluded.doc, updated_at = now()",
-      [JSON.stringify(store.config), JSON.stringify(store.counters)],
+      [JSON.stringify(store.config), JSON.stringify(mergedCounters)],
     );
     await client.query("commit");
   } catch (e) {
