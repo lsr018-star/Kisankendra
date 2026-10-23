@@ -38,6 +38,7 @@ export function buildSeed(): Store {
     auditLogs: [],
     reminders: [],
     sessions: [],
+    passwordOtps: [],
     plans: [],
     subscriptions: [],
     billingRecords: [],

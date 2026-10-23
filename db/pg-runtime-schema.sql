@@ -29,6 +29,7 @@ create table if not exists notifications (id text primary key, doc jsonb not nul
 create table if not exists audit_logs (id text primary key, doc jsonb not null, updated_at timestamptz not null default now());
 create table if not exists reminders (id text primary key, doc jsonb not null, updated_at timestamptz not null default now());
 create table if not exists sessions (id text primary key, doc jsonb not null, updated_at timestamptz not null default now());
+create table if not exists password_otps (id text primary key, doc jsonb not null, updated_at timestamptz not null default now());
 create table if not exists assignments (id text primary key, doc jsonb not null, updated_at timestamptz not null default now());
 create table if not exists status_history (id text primary key, doc jsonb not null, updated_at timestamptz not null default now());
 create table if not exists plans (id text primary key, doc jsonb not null, updated_at timestamptz not null default now());

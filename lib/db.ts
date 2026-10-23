@@ -38,7 +38,7 @@ declare global {
 // keys. Fill defaults so a dev store.json from Phase 1 keeps working.
 export function normaliseStore(store: Store): Store {
   const s = store as unknown as Record<string, unknown>;
-  for (const key of ["plans", "subscriptions", "billingRecords", "payments", "refunds", "settlements"]) {
+  for (const key of ["plans", "subscriptions", "billingRecords", "payments", "refunds", "settlements", "passwordOtps"]) {
     if (!Array.isArray(s[key])) s[key] = [];
   }
   const cfg = store.config as unknown as Record<string, unknown>;

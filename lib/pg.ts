@@ -21,7 +21,7 @@ import type { Store } from "./types";
 export const COLLECTIONS = [
   "users", "shops", "products", "inventory", "stockMovements", "customers",
   "orders", "assignments", "statusHistory", "tickets", "diseases",
-  "notifications", "auditLogs", "reminders", "sessions",
+  "notifications", "auditLogs", "reminders", "sessions", "passwordOtps",
   "plans", "subscriptions", "billingRecords", "payments", "refunds", "settlements",
 ] as const;
 
@@ -43,6 +43,7 @@ export const TABLE_BY_COLLECTION: Record<CollectionName, string> = {
   auditLogs: "audit_logs",
   reminders: "reminders",
   sessions: "sessions",
+  passwordOtps: "password_otps",
   plans: "plans",
   subscriptions: "subscriptions",
   billingRecords: "billing_records",
@@ -72,6 +73,41 @@ export function getPool(): Pool {
   return pool;
 }
 
+// Tables whose rows carry a generated shop_id column (see the schema file).
+const SHOP_SCOPED_TABLES = new Set([
+  "inventory", "customers", "orders", "subscriptions",
+  "billing_records", "payments", "refunds", "settlements",
+]);
+
+// Creates any collection tables missing from an existing database (schema
+// growth across deploys). Runs at most one advisory-locked pass per boot,
+// and only when something is actually missing.
+async function ensureCollectionTables(p: Pool): Promise<void> {
+  const wanted = Object.values(TABLE_BY_COLLECTION);
+  const existing = await p.query<{ table_name: string }>(
+    "select table_name from information_schema.tables where table_schema = 'public'",
+  );
+  const have = new Set(existing.rows.map((r) => r.table_name));
+  const missing = wanted.filter((t) => !have.has(t));
+  if (missing.length === 0) return;
+  const client = await p.connect();
+  try {
+    await client.query("select pg_advisory_lock(727271)");
+    for (const table of missing) {
+      const shopCol = SHOP_SCOPED_TABLES.has(table)
+        ? ", shop_id text generated always as (doc->>'shopId') stored"
+        : "";
+      await client.query(
+        `create table if not exists "${table}" (id text primary key, doc jsonb not null, updated_at timestamptz not null default now()${shopCol})`,
+      );
+    }
+    console.log("[pg] created missing collection tables:", missing.join(", "));
+  } finally {
+    await client.query("select pg_advisory_unlock(727271)").catch(() => {});
+    client.release();
+  }
+}
+
 export function ensurePgSchema(): Promise<void> {
   if (!schemaReady) {
     const attempt = (async () => {
@@ -84,7 +120,14 @@ export function ensurePgSchema(): Promise<void> {
       const marker = await p.query<{ t: string | null }>(
         "select to_regclass('public.kk_meta') as t",
       );
-      if (marker.rows[0]?.t) return;
+      if (marker.rows[0]?.t) {
+        // Schema exists — but a collection added by a newer app version
+        // (e.g. password_otps) may still be missing its table on an older
+        // database. Create only the missing tables, under the advisory
+        // lock, so deploys can grow the schema safely.
+        await ensureCollectionTables(p);
+        return;
+      }
       // First boot ever: apply the schema under an advisory lock so only
       // one instance runs DDL; the rest wait, then see the marker.
       const client = await p.connect();
@@ -169,8 +212,15 @@ export async function hydrateFromPg(): Promise<Store | null> {
   const store: Record<string, unknown> = {};
   for (const name of COLLECTIONS) {
     const table = TABLE_BY_COLLECTION[name];
-    const res = await p.query<{ doc: unknown }>(`select doc from "${table}" order by id`);
-    store[name] = res.rows.map((r) => r.doc);
+    try {
+      const res = await p.query<{ doc: unknown }>(`select doc from "${table}" order by id`);
+      store[name] = res.rows.map((r) => r.doc);
+    } catch {
+      // A table added by a newer app version may not exist yet on this
+      // database (ensurePgSchema creates it); hydrate it as empty rather
+      // than failing the whole boot.
+      store[name] = [];
+    }
   }
   const meta = await p.query<{ key: string; doc: unknown }>("select key, doc from kk_meta");
   for (const row of meta.rows) store[row.key] = row.doc;

@@ -276,6 +276,16 @@ export interface Session {
   expiresAt: string;
 }
 
+// One active password-reset OTP per user. Only the hash is stored.
+export interface PasswordOtp {
+  id: string;
+  userId: string;
+  otpHash: string;
+  createdAt: string;
+  expiresAt: string;
+  attempts: number;
+}
+
 // ---------- Phase 2: subscription plans & billing ----------
 
 export interface SubscriptionPlan {
@@ -389,6 +399,7 @@ export interface Store {
   auditLogs: AuditLog[];
   reminders: Reminder[];
   sessions: Session[];
+  passwordOtps: PasswordOtp[];
   config: PlatformConfig;
   counters: Record<string, number>;
   // Phase 2/3 collections

@@ -56,6 +56,9 @@ function LoginInner() {
       </form>
       <div className="mt-4 flex flex-col gap-1 text-sm">
         <p>
+          <Link href="/forgot-password" className="font-semibold text-leaf-700 underline">{t("forgotPassword")}</Link>
+        </p>
+        <p>
           New farmer? <Link href="/register" className="font-semibold text-leaf-700 underline">{t("register")}</Link>
         </p>
         <p>
