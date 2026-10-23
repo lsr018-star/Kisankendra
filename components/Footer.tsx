@@ -26,6 +26,7 @@ export default function Footer() {
           <Link href="/privacy" className="hover:underline py-1">{t("privacy")}</Link>
           <Link href="/terms" className="hover:underline py-1">{t("terms")}</Link>
           <Link href="/catalogue" className="hover:underline py-1">{t("catalogue")}</Link>
+          <Link href="/login?as=admin" className="hover:underline py-1">Owner Login</Link>
         </nav>
       </div>
       <div className="border-t border-leaf-700 py-3 text-center text-xs text-leaf-200 px-4">

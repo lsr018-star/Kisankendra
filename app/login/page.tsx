@@ -39,9 +39,29 @@ function LoginInner() {
   return (
     <div className="card mx-auto max-w-md">
       <h1 className="text-2xl font-bold text-leaf-900">
-        {as === "shop" ? t("shopLogin") : as === "farmer" ? t("farmerLogin") : t("login")}
+        {as === "shop" ? t("shopLogin") : as === "farmer" ? t("farmerLogin") : as === "admin" ? "Owner Login" : t("login")}
       </h1>
       <p className="mt-1 text-sm text-neutral-600">Use your email or mobile number and password.</p>
+      <div className="mt-3 flex gap-2" role="navigation" aria-label="Login type">
+        <Link
+          href="/login?as=farmer"
+          className={`rounded-full px-3 py-1.5 text-sm font-semibold ${as === "farmer" ? "bg-leaf-700 text-white" : "bg-cream text-leaf-800"}`}
+        >
+          {t("farmerLogin")}
+        </Link>
+        <Link
+          href="/login?as=shop"
+          className={`rounded-full px-3 py-1.5 text-sm font-semibold ${as === "shop" ? "bg-leaf-700 text-white" : "bg-cream text-leaf-800"}`}
+        >
+          {t("shopLogin")}
+        </Link>
+        <Link
+          href="/login?as=admin"
+          className={`rounded-full px-3 py-1.5 text-sm font-semibold ${as === "admin" ? "bg-leaf-700 text-white" : "bg-cream text-leaf-800"}`}
+        >
+          Owner Login
+        </Link>
+      </div>
       <form onSubmit={submit} className="mt-4 flex flex-col gap-3">
         <div>
           <label className="label" htmlFor="li-id">{t("email")} / {t("mobile")}</label>
