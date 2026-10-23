@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { loadStore } from "./db";
 import { verifySessionToken } from "./password";
+import { pgEnabled, fetchUserByIdFromPg } from "./pg";
 import type { User } from "./types";
 
 export { hashPassword, verifyPassword, newToken, createSessionToken, verifySessionToken } from "./password";
@@ -15,7 +16,20 @@ export async function getSessionUser(): Promise<User | null> {
   // Primary: stateless signed token — verifiable by any server instance.
   const signedUserId = verifySessionToken(token);
   if (signedUserId) {
-    return store.users.find((u) => u.id === signedUserId) ?? null;
+    const local = store.users.find((u) => u.id === signedUserId);
+    if (local) return local;
+    // This instance booted before the user registered, so its in-memory
+    // store does not know them yet. Fall back to Postgres and adopt the
+    // record — without this, a valid login is wrongly treated as logged
+    // out on older instances (the "asks for login again" bug).
+    if (pgEnabled()) {
+      const fromPg = await fetchUserByIdFromPg(signedUserId).catch(() => null);
+      if (fromPg) {
+        store.users.push(fromPg);
+        return fromPg;
+      }
+    }
+    return null;
   }
   // Legacy fallback: server-side session rows (pre-fix cookies, local dev).
   const session = store.sessions.find((s) => s.token === token);

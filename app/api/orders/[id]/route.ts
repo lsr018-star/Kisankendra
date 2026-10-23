@@ -1,5 +1,5 @@
 import { loadStore, saveStore, audit } from "@/lib/db";
-import { pgEnabled, flushPgWrites } from "@/lib/pg";
+import { pgEnabled, flushPgWrites, fetchOrderByIdFromPg } from "@/lib/pg";
 import { currentUser, fail, json } from "@/lib/api-helpers";
 import { hasPermission } from "@/lib/auth";
 import {
@@ -29,7 +29,17 @@ async function loadOrderForUser(id: string) {
   const user = await currentUser();
   if (!user) return { error: fail("Login required", 401) };
   const store = loadStore();
-  const order = store.orders.find((o) => o.id === id);
+  let order = store.orders.find((o) => o.id === id);
+  if (!order && pgEnabled()) {
+    // Instance booted before this order existed: fetch and adopt it from
+    // Postgres instead of wrongly answering 404 (also covers shop status
+    // actions on orders placed after the instance booted).
+    const fromPg = await fetchOrderByIdFromPg(id).catch(() => null);
+    if (fromPg) {
+      store.orders.push(fromPg);
+      order = fromPg;
+    }
+  }
   if (!order) return { error: fail("Order not found", 404) };
   // Admin may also view unassigned orders.
   if (!canViewOrder(order, user) && !(user.role === "admin")) {

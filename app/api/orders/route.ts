@@ -1,5 +1,5 @@
 import { loadStore, saveStore, nextSeq, audit } from "@/lib/db";
-import { pgEnabled, flushPgWrites } from "@/lib/pg";
+import { pgEnabled, flushPgWrites, fetchAllOrdersFromPg } from "@/lib/pg";
 import { currentUser, fail, json } from "@/lib/api-helpers";
 import { pctOf } from "@/lib/money";
 import { assignOrder, recordHistory } from "@/lib/assignment";
@@ -11,6 +11,17 @@ export async function GET() {
   const user = await currentUser();
   if (!user) return fail("Login required", 401);
   const store = loadStore();
+  if (pgEnabled()) {
+    // An instance booted before an order was placed does not hold it in
+    // memory. Refresh the orders collection from Postgres (the shared
+    // truth) so My Orders / shop lists are never wrongly empty.
+    const pgOrders = await fetchAllOrdersFromPg().catch(() => null);
+    if (pgOrders) {
+      const byId = new Map(store.orders.map((o) => [o.id, o]));
+      for (const o of pgOrders) byId.set(o.id, o);
+      store.orders = [...byId.values()];
+    }
+  }
   let orders: Order[] = [];
   if (user.role === "farmer") orders = store.orders.filter((o) => o.farmerId === user.id);
   else if (user.role === "shop_owner" || user.role === "shop_staff")

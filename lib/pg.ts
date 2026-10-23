@@ -74,12 +74,89 @@ export function getPool(): Pool {
 
 export function ensurePgSchema(): Promise<void> {
   if (!schemaReady) {
-    schemaReady = (async () => {
-      const sql = fs.readFileSync(path.join(process.cwd(), "db", "pg-runtime-schema.sql"), "utf8");
-      await getPool().query(sql);
+    const attempt = (async () => {
+      const p = getPool();
+      // Fast path: schema already applied (every boot after the first).
+      // Running the DDL file on every boot is what caused the 2026-10-23
+      // outage: concurrent cold boots took AccessExclusiveLocks for
+      // CREATE TABLE and deadlocked each other (SQLSTATE 40P01), failing
+      // the instrumentation hook and 500-ing every store-backed route.
+      const marker = await p.query<{ t: string | null }>(
+        "select to_regclass('public.kk_meta') as t",
+      );
+      if (marker.rows[0]?.t) return;
+      // First boot ever: apply the schema under an advisory lock so only
+      // one instance runs DDL; the rest wait, then see the marker.
+      const client = await p.connect();
+      try {
+        await client.query("select pg_advisory_lock(727271)");
+        const again = await client.query<{ t: string | null }>(
+          "select to_regclass('public.kk_meta') as t",
+        );
+        if (!again.rows[0]?.t) {
+          const sql = fs.readFileSync(
+            path.join(process.cwd(), "db", "pg-runtime-schema.sql"),
+            "utf8",
+          );
+          await client.query(sql);
+        }
+      } finally {
+        await client.query("select pg_advisory_unlock(727271)").catch(() => {});
+        client.release();
+      }
     })();
+    // Never cache a failure: a rejected promise kept in schemaReady would
+    // brick this instance for its whole lifetime. Reset so the next call
+    // retries (boot also retries — see lib/db-pg-boot.ts).
+    schemaReady = attempt.catch((e) => {
+      schemaReady = null;
+      throw e;
+    });
   }
   return schemaReady;
+}
+
+// --- Targeted reads -------------------------------------------------------
+// Instances hydrate once at boot, so a record created later (e.g. a new
+// registration) is missing from an older instance's memory. These helpers
+// let auth and order reads fall back to Postgres on a memory miss and
+// adopt the record locally, instead of wrongly answering "not found".
+
+export async function fetchUserByIdFromPg(id: string): Promise<Store["users"][number] | null> {
+  await ensurePgSchema();
+  const res = await getPool().query<{ doc: Store["users"][number] }>(
+    "select doc from users where id = $1",
+    [id],
+  );
+  return res.rows[0]?.doc ?? null;
+}
+
+export async function fetchUserByIdentifierFromPg(
+  identifier: string,
+): Promise<Store["users"][number] | null> {
+  await ensurePgSchema();
+  const res = await getPool().query<{ doc: Store["users"][number] }>(
+    "select doc from users where doc->>'mobile' = $1 or lower(doc->>'email') = $1 limit 1",
+    [identifier],
+  );
+  return res.rows[0]?.doc ?? null;
+}
+
+export async function fetchOrderByIdFromPg(id: string): Promise<Store["orders"][number] | null> {
+  await ensurePgSchema();
+  const res = await getPool().query<{ doc: Store["orders"][number] }>(
+    "select doc from orders where id = $1",
+    [id],
+  );
+  return res.rows[0]?.doc ?? null;
+}
+
+export async function fetchAllOrdersFromPg(): Promise<Store["orders"]> {
+  await ensurePgSchema();
+  const res = await getPool().query<{ doc: Store["orders"][number] }>(
+    "select doc from orders order by id",
+  );
+  return res.rows.map((r) => r.doc);
 }
 
 // Returns the assembled store, or null when Postgres has no data yet
