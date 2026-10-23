@@ -4,6 +4,9 @@ import { json } from "@/lib/api-helpers";
 import { SESSION_COOKIE } from "@/lib/auth";
 
 export async function POST() {
+  // Signed session tokens are stateless: clearing the cookie below is what
+  // logs the user out on this device. Legacy server-side rows are also
+  // removed when present.
   const store = loadStore();
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;

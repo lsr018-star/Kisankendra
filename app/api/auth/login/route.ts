@@ -1,6 +1,6 @@
 import { loadStore, saveStore, audit } from "@/lib/db";
 import { fail, json } from "@/lib/api-helpers";
-import { newToken, publicUser, verifyPassword, SESSION_COOKIE } from "@/lib/auth";
+import { createSessionToken, publicUser, verifyPassword, SESSION_COOKIE } from "@/lib/auth";
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
@@ -15,13 +15,14 @@ export async function POST(req: Request) {
   if (!user || !verifyPassword(password, user.passwordHash)) {
     return fail("Invalid login details. Please check and try again.", 401);
   }
-  const token = newToken();
-  store.sessions.push({
-    token,
-    userId: user.id,
-    createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
-  });
+  // Stateless signed token: verifiable by every server instance, unlike a
+  // server-side session row (see lib/password.ts).
+  let token: string;
+  try {
+    token = createSessionToken(user.id);
+  } catch {
+    return fail("Login is not configured on the server yet. Please try again later.", 500);
+  }
   audit(store, user.id, user.role, "auth.login", "user", user.id, "User logged in");
   saveStore();
 

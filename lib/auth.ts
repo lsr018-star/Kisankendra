@@ -1,8 +1,9 @@
 import { cookies } from "next/headers";
 import { loadStore } from "./db";
+import { verifySessionToken } from "./password";
 import type { User } from "./types";
 
-export { hashPassword, verifyPassword, newToken } from "./password";
+export { hashPassword, verifyPassword, newToken, createSessionToken, verifySessionToken } from "./password";
 
 export const SESSION_COOKIE = "kk_session";
 
@@ -11,6 +12,12 @@ export async function getSessionUser(): Promise<User | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
+  // Primary: stateless signed token — verifiable by any server instance.
+  const signedUserId = verifySessionToken(token);
+  if (signedUserId) {
+    return store.users.find((u) => u.id === signedUserId) ?? null;
+  }
+  // Legacy fallback: server-side session rows (pre-fix cookies, local dev).
   const session = store.sessions.find((s) => s.token === token);
   if (!session) return null;
   if (new Date(session.expiresAt).getTime() < Date.now()) return null;
