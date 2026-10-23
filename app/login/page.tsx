@@ -36,8 +36,14 @@ function LoginInner() {
     }
   };
 
+  const isAdmin = as === "admin";
   return (
-    <div className="card mx-auto max-w-md">
+    <div className={`card mx-auto max-w-md ${isAdmin ? "border-2 border-tang-500" : ""}`}>
+      {isAdmin && (
+        <p className="-mx-4 -mt-4 mb-4 rounded-t-xl bg-tang-500 px-4 py-2.5 text-center font-bold text-white">
+          👑 OWNER / ADMIN PANEL — sirf platform owner ke liye
+        </p>
+      )}
       <h1 className="text-2xl font-bold text-leaf-900">
         {as === "shop" ? t("shopLogin") : as === "farmer" ? t("farmerLogin") : as === "admin" ? "Owner Login" : t("login")}
       </h1>
@@ -76,7 +82,7 @@ function LoginInner() {
           <input id="li-pw" required type="password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
         </div>
         {error && <p className="rounded-lg bg-red-50 p-3 text-red-800" role="alert">{error}</p>}
-        <button type="submit" disabled={busy} className="btn-primary w-full">{busy ? "…" : t("login")}</button>
+        <button type="submit" disabled={busy} className={`btn-primary w-full ${isAdmin ? "!bg-tang-500 hover:!bg-tang-600" : ""}`}>{busy ? "…" : t("login")}</button>
       </form>
       <div className="mt-4 flex flex-col gap-1 text-sm">
         <p>
